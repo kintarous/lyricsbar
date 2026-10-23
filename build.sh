@@ -61,7 +61,8 @@ release)
     rm -rf build/dmg && mkdir -p build/dmg
     ditto "$APP" build/dmg/Lyricsbar.app
     ln -s /Applications build/dmg/Applications
-    hdiutil create -volname "Lyricsbar" -srcfolder build/dmg -ov -format UDZO "$DMG" >/dev/null
+    rm -f "$DMG"
+    diskutil image create from --format UDZO --volumeName Lyricsbar build/dmg "$DMG" >/dev/null
     rm -rf build/dmg
 
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP" 2>/dev/null || true

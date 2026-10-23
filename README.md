@@ -121,7 +121,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --lookup "Judul" "Artis" 240
 ## Kredit
 
 - Lirik: [LRCLIB](https://lrclib.net) dan NetEase Cloud Music
-- Ikon app: <!-- TODO: isi nama pembuat dan link sumber ikon (misalnya Flaticon), sesuai syarat lisensinya -->
+- Ikon app: <a href="https://www.flaticon.com/free-icon/music-book_4675527" title="music book icons">Music book icons created by Magnific - Flaticon</a> (Flaticon License, gratis dengan atribusi)
 
 Lyricsbar tidak berafiliasi dengan Spotify maupun Apple. Spotify, Apple Music, dan Touch Bar adalah merek dagang milik pemiliknya masing-masing.
 

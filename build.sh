@@ -3,7 +3,7 @@
 #
 #   ./build.sh            build ke build/Lyricsbar.app
 #   ./build.sh install    build lalu pasang ke /Applications
-#   ./build.sh release    build lalu buat dist/Lyricsbar-<versi>.zip untuk GitHub Releases
+#   ./build.sh release    build lalu buat dist/Lyricsbar-<versi>.dmg dan .zip untuk GitHub Releases
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -55,8 +55,17 @@ release)
     rm -f "$ZIP"
     # ditto menjaga tanda tangan dan atribut bundle; zip biasa bisa merusaknya.
     ditto -c -k --keepParent "$APP" "$ZIP"
+
+    # DMG: jendela berisi Lyricsbar.app dan pintasan ke Applications, tinggal diseret.
+    DMG="dist/Lyricsbar-$VERSION.dmg"
+    rm -rf build/dmg && mkdir -p build/dmg
+    ditto "$APP" build/dmg/Lyricsbar.app
+    ln -s /Applications build/dmg/Applications
+    hdiutil create -volname "Lyricsbar" -srcfolder build/dmg -ov -format UDZO "$DMG" >/dev/null
+    rm -rf build/dmg
+
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP" 2>/dev/null || true
     rm -rf "$APP"
-    echo "Rilis: $ZIP ($(du -h "$ZIP" | cut -f1)) — unggah ke halaman Releases di GitHub."
+    echo "Rilis: $DMG ($(du -h "$DMG" | cut -f1)) dan $ZIP ($(du -h "$ZIP" | cut -f1))"
     ;;
 esac

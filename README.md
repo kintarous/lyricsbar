@@ -23,8 +23,8 @@ Lirik lagu yang sedang kamu putar di **Spotify** atau **Apple Music**, tampil si
 
 ## Instalasi
 
-1. Buka halaman [**Releases**](../../releases) dan unduh `Lyricsbar-<versi>.zip` terbaru.
-2. Klik dua kali file zip-nya, lalu seret **Lyricsbar.app** ke folder **Applications**.
+1. Buka halaman [**Releases**](../../releases) dan unduh `Lyricsbar-<versi>.dmg` terbaru. Ada juga versi `.zip` kalau kamu lebih suka.
+2. Klik dua kali file DMG-nya, lalu di jendela yang terbuka, seret **Lyricsbar** ke ikon **Applications**.
 3. Buka Lyricsbar dari folder Applications. Lihat [Membuka app pertama kali](#membuka-app-pertama-kali) di bawah.
 4. Saat diminta, klik **OK** supaya Lyricsbar boleh membaca Spotify/Music.
 5. Putar lagu. Lirik muncul di Touch Bar, dan ikon ♪ muncul di menu bar.
@@ -108,7 +108,7 @@ cd Lyricsbar
 |---|---|
 | `./build.sh` | `build/Lyricsbar.app` |
 | `./build.sh install` | Build lalu pasang ke `/Applications` |
-| `./build.sh release` | `dist/Lyricsbar-<versi>.zip` untuk diunggah ke GitHub Releases |
+| `./build.sh release` | `dist/Lyricsbar-<versi>.dmg` dan `.zip` untuk diunggah ke GitHub Releases |
 
 Versi diambil dari `CFBundleShortVersionString` di `Info.plist`.
 

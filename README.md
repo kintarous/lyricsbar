@@ -32,11 +32,13 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 
 <sub><i>Ilustrasi tampilan. Teks liriknya hanya contoh.</i></sub>
 
+<br><br>
+
+[🇬🇧 English](README.en.md) · 🇮🇩 Bahasa Indonesia
+
 </div>
 
 <br>
-
-> 🇬🇧 *Lyricsbar shows time-synced lyrics for the song playing in Spotify or Apple Music on the MacBook Pro Touch Bar, with a mini control strip (brightness, volume, mute, previous/play/next) and an emoji shortcut. Free, open source, no account needed.*
 
 ## Fitur
 
@@ -49,6 +51,8 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 | ↔️ **Perataan** | Rata kiri, tengah, atau kanan, di Touch Bar maupun menu bar |
 | ⏱️ **Offset per lagu** | Lirik terlalu cepat atau lambat? Geser ±0,5 detik, tersimpan per lagu |
 | 🎧 **Spotify & Apple Music** | Pemutar yang sedang memutar lagu dipakai otomatis |
+| 🐠 **Wallpaper saat idle** | Saat tidak ada lagu dan Mac lama tidak disentuh, Touch Bar menampilkan animasi: ikan, kereta, hujan, kota malam, aurora, kucing, dino, dan lainnya (16 tema), termasuk teks buatanmu sendiri (nama atau inisial) dalam huruf dot-matrix hitam putih, dan cuaca hari ini di lokasimu dalam hitam putih yang bisa dimainkan: geser jari untuk memunculkan payung saat hujan, mendorong awan, menyapu kabut, atau memindah matahari. Ketuk untuk kembali ke tombol bawaan |
+| 🌐 **Indonesia & Inggris** | Bahasa Indonesia kalau bahasa atau wilayah macOS-mu Indonesia, selain itu Inggris. Bisa juga dipilih di menu ♪ |
 | 💤 **Tahu diri** | Kembali ke Touch Bar bawaan saat musik dijeda, dan "tidur" saat pemutar ditutup |
 | 🔒 **Privat** | Tanpa akun, tanpa API key, tanpa analytics |
 
@@ -109,6 +113,8 @@ Semua pengaturan ada di ikon **♪** di menu bar.
 | Buka folder lirik sendiri… | Tempat menaruh file `.lrc` buatanmu |
 | Animasi lirik | Geser ke atas, pudar, atau tanpa animasi |
 | Perataan lirik | Rata kiri, tengah, atau kanan |
+| Wallpaper saat idle | Pilih tema (langsung dipratinjau), teks sendiri, lokasi cuaca, dan lama menunggu |
+| Bahasa | Ikuti sistem, Bahasa Indonesia, atau English |
 | Lirik juga di menu bar | Menampilkan baris lirik di menu bar |
 | Buka saat login | Menjalankan Lyricsbar otomatis setiap login |
 </details>
@@ -142,7 +148,8 @@ Lirik resmi Spotify dan Apple Music **tidak** dipakai, karena tidak ada cara res
 
 - Tidak ada server, analytics, atau pengumpulan data.
 - Untuk mencari lirik, **judul, artis, album, dan durasi** lagu dikirim ke LRCLIB dan NetEase. Lirik yang ketemu disimpan di `~/Library/Caches/local.touchbarlyrics/`.
-- Satu-satunya izin yang diminta adalah **Automation**, untuk membaca lagu dan posisi pemutaran dari Spotify/Music. Kecerahan dan volume diatur tanpa izin tambahan.
+- Kalau kamu memakai wallpaper **Cuaca hari ini**, lokasi MacBook (dibulatkan sekitar 1 km) dikirim ke [Open-Meteo](https://open-meteo.com) untuk mengambil cuaca, dan nama kotanya dicari lewat Apple. Kamu juga bisa mengisi kota sendiri lewat menu ♪ tanpa memberi izin Lokasi.
+- Izin yang diminta adalah **Automation**, untuk membaca lagu dan posisi pemutaran dari Spotify/Music. Kecerahan dan volume diatur tanpa izin tambahan. Izin **Lokasi** hanya diminta saat kamu memilih wallpaper cuaca dengan lokasi otomatis.
 
 ## Batasan
 
@@ -177,6 +184,12 @@ Untuk menguji pencarian lirik tanpa memutar lagu:
 ```bash
 build/Lyricsbar.app/Contents/MacOS/Lyricsbar --lookup "Judul" "Artis" 240
 ```
+
+Untuk merender wallpaper ke PNG tanpa Touch Bar (detik mulai, jumlah frame, jarak antarframe):
+
+```bash
+build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 dino.png
+```
 </details>
 
 ## Riwayat versi
@@ -189,6 +202,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --lookup "Judul" "Artis" 240
 ## Kredit
 
 - Lirik: [LRCLIB](https://lrclib.net) dan NetEase Cloud Music
+- Cuaca: [Open-Meteo](https://open-meteo.com)
 - Ikon app: <a href="https://www.flaticon.com/free-icon/music-book_4675527" title="music book icons">Music book icons created by Magnific - Flaticon</a> (Flaticon License, gratis dengan atribusi)
 
 Lyricsbar tidak berafiliasi dengan Spotify maupun Apple. Spotify, Apple Music, dan Touch Bar adalah merek dagang milik pemiliknya masing-masing.

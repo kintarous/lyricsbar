@@ -6,6 +6,46 @@ import Cocoa
 import CoreAudio
 import ServiceManagement
 
+// MARK: - Bahasa (Indonesia / Inggris)
+
+enum AppLanguage: String, CaseIterable {
+    case system, indonesian = "id", english = "en"
+
+    var title: String {
+        switch self {
+        case .system: return L("Ikuti sistem", "Same as system")
+        case .indonesian: return "Bahasa Indonesia"
+        case .english: return "English"
+        }
+    }
+
+    /// Pilihan di menu ♪ (disimpan); bawaannya mengikuti bahasa utama macOS.
+    static var selected: AppLanguage {
+        get { AppLanguage(rawValue: UserDefaults.standard.string(forKey: "language") ?? "") ?? .system }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: "language")
+            isIndonesian = resolveIndonesian()
+        }
+    }
+
+    fileprivate static var isIndonesian = resolveIndonesian()
+
+    private static func resolveIndonesian() -> Bool {
+        switch selected {
+        case .indonesian: return true
+        case .english: return false
+        case .system:
+            // Banyak pengguna di Indonesia memakai macOS berbahasa Inggris, jadi wilayah Indonesia juga dihitung.
+            return Locale.preferredLanguages.first?.hasPrefix("id") == true || Locale.current.region?.identifier == "ID"
+        }
+    }
+}
+
+/// Teks dalam bahasa yang dipakai: Indonesia untuk pengguna berbahasa atau berwilayah Indonesia, selain itu Inggris.
+func L(_ indonesian: String, _ english: String) -> String {
+    AppLanguage.isIndonesian ? indonesian : english
+}
+
 // MARK: - Pemutar musik (Spotify, Apple Music)
 
 enum Player: String, CaseIterable {
@@ -339,7 +379,7 @@ final class LyricsProvider {
 
     private func localLyrics(_ track: Track) -> Lyrics? {
         let wanted = Set([track.title, Self.cleanTitle(track.title)].map { Self.normalize("\($0) - \(Self.primaryArtist(track))") })
-        for (folder, name) in [(Self.userFolder, "file lokal"), (Self.lyricsXFolder, "LyricsX")] {
+        for (folder, name) in [(Self.userFolder, L("file lokal", "local file")), (Self.lyricsXFolder, "LyricsX")] {
             guard let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil) else { continue }
             for file in files where ["lrc", "lrcx"].contains(file.pathExtension.lowercased()) {
                 guard wanted.contains(Self.normalize(file.deletingPathExtension().lastPathComponent)),
@@ -537,6 +577,19 @@ enum SystemTouchBar {
         }
     }
 
+    /// Menutup bar sepenuhnya (tanpa menyisakan ikon di Control Strip).
+    static func dismiss(_ bar: NSTouchBar) {
+        let cls: AnyObject = NSTouchBar.self
+        for name in ["dismissSystemModalTouchBar:", "dismissSystemModalFunctionBar:"] {
+            let sel = NSSelectorFromString(name)
+            if cls.responds(to: sel) {
+                _ = cls.perform(sel, with: bar)
+                return
+            }
+        }
+        minimize(bar)
+    }
+
     static var isAvailable: Bool {
         (NSTouchBar.self as AnyObject).responds(to: NSSelectorFromString("presentSystemModalTouchBar:systemTrayItemIdentifier:"))
     }
@@ -623,9 +676,9 @@ enum LyricAlignment: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .left: return "Rata kiri"
-        case .center: return "Rata tengah"
-        case .right: return "Rata kanan"
+        case .left: return L("Rata kiri", "Left")
+        case .center: return L("Rata tengah", "Center")
+        case .right: return L("Rata kanan", "Right")
         }
     }
 
@@ -643,9 +696,9 @@ enum LyricAnimation: String, CaseIterable {
 
     var title: String {
         switch self {
-        case .slideUp: return "Geser ke atas"
-        case .fade: return "Pudar"
-        case .none: return "Tanpa animasi"
+        case .slideUp: return L("Geser ke atas", "Slide up")
+        case .fade: return L("Pudar", "Fade")
+        case .none: return L("Tanpa animasi", "No animation")
         }
     }
 }
@@ -911,6 +964,8 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
     var onCommand: ((PlayerCommand) -> Void)?
     /// Dipakai saat kembali dari mode emoji: bar lirik hanya muncul lagi kalau lagu sedang diputar.
     var canShow: () -> Bool = { true }
+    /// Dipanggil tepat sebelum bar lirik tampil (untuk menutup wallpaper).
+    var onPresent: (() -> Void)?
     /// Apakah bar lirik sedang tampil (bukan Touch Bar bawaan / Touch Bar app).
     private(set) var isShown = false
     /// Touch Bar app sedang ditampilkan sementara lewat tombol emoji.
@@ -925,7 +980,7 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
     private var shown: String?
 
     private let brightnessSlider = SliderRowItem(identifier: NSTouchBarItem.Identifier("local.touchbarlyrics.brightness.slider"),
-                                                 label: "Kecerahan", low: "sun.min", high: "sun.max")
+                                                 label: L("Kecerahan", "Brightness"), low: "sun.min", high: "sun.max")
     private let volumeSlider = SliderRowItem(identifier: NSTouchBarItem.Identifier("local.touchbarlyrics.volume.slider"),
                                              label: "Volume", low: "speaker.fill", high: "speaker.wave.3.fill")
     private var muteButton: NSButton?
@@ -956,13 +1011,14 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
         }
 
         let tray = NSCustomTouchBarItem(identifier: Self.trayID)
-        let icon = NSImage(systemSymbolName: "music.note", accessibilityDescription: "Lirik")!
+        let icon = NSImage(systemSymbolName: "music.note", accessibilityDescription: L("Lirik", "Lyrics"))!
         tray.view = NSButton(image: icon, target: self, action: #selector(present))
         SystemTouchBar.addSystemTrayItem(tray)
         SystemTouchBar.setControlStripPresence(Self.trayID, true)
     }
 
     @objc func present() {
+        onPresent?()
         returnTimer?.invalidate()
         isShowingAppBar = false
         refreshControls()
@@ -1008,7 +1064,7 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
             return custom(id, container)
 
         case Self.brightnessID:
-            return custom(id, controlButton("sun.max.fill", "Kecerahan", #selector(showBrightness)))
+            return custom(id, controlButton("sun.max.fill", L("Kecerahan", "Brightness"), #selector(showBrightness)))
 
         case Self.volumeID:
             let button = controlButton("speaker.wave.2.fill", "Volume", #selector(showVolume))
@@ -1022,11 +1078,12 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
             return volumeSlider
 
         case Self.doneID:
-            let button = NSButton(title: "Selesai", target: self, action: #selector(showLyrics))
+            let button = NSButton(title: L("Selesai", "Done"), target: self, action: #selector(showLyrics))
+            doneButton = button
             return custom(id, button)
 
         case Self.muteID:
-            let button = controlButton("speaker.fill", "Bisukan", #selector(toggleMute))
+            let button = controlButton("speaker.fill", L("Bisukan", "Mute"), #selector(toggleMute))
             muteButton = button
             shownMuteSymbol = nil
             return custom(id, button)
@@ -1035,13 +1092,13 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
             return custom(id, controlButton("face.smiling", "Emoji", #selector(showAppTouchBar)))
 
         case Self.previousID:
-            return custom(id, controlButton("backward.fill", "Lagu sebelumnya", #selector(previousTrack)))
+            return custom(id, controlButton("backward.fill", L("Lagu sebelumnya", "Previous track"), #selector(previousTrack)))
 
         case Self.nextID:
-            return custom(id, controlButton("forward.fill", "Lagu berikutnya", #selector(nextTrack)))
+            return custom(id, controlButton("forward.fill", L("Lagu berikutnya", "Next track"), #selector(nextTrack)))
 
         case Self.playPauseID:
-            let button = controlButton("play.fill", "Putar/Jeda", #selector(playPause))
+            let button = controlButton("play.fill", L("Putar/Jeda", "Play/Pause"), #selector(playPause))
             playPauseButton = button
             shownPlaySymbol = nil
             return custom(id, button)
@@ -1065,6 +1122,12 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
     }
 
     private var volumeButton: NSButton?
+    private var doneButton: NSButton?
+
+    /// Tombol Touch Bar yang bertuliskan teks dibuat sekali, jadi teksnya diganti saat bahasa berubah.
+    func languageChanged() {
+        doneButton?.title = L("Selesai", "Done")
+    }
     private var modeTimer: Timer?
 
     func setMode(_ mode: Mode) {
@@ -1170,7 +1233,7 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
         let muteSymbol = muted ? "speaker.slash.fill" : "speaker.fill"
         if let muteButton, muteSymbol != shownMuteSymbol {
             shownMuteSymbol = muteSymbol
-            muteButton.image = NSImage(systemSymbolName: muteSymbol, accessibilityDescription: "Bisukan")
+            muteButton.image = NSImage(systemSymbolName: muteSymbol, accessibilityDescription: L("Bisukan", "Mute"))
             muteButton.bezelColor = muted ? .systemRed : nil
         }
 
@@ -1178,7 +1241,7 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
         let playSymbol = isPlaying ? "pause.fill" : "play.fill"
         if let playPauseButton, playSymbol != shownPlaySymbol {
             shownPlaySymbol = playSymbol
-            playPauseButton.image = NSImage(systemSymbolName: playSymbol, accessibilityDescription: "Putar/Jeda")
+            playPauseButton.image = NSImage(systemSymbolName: playSymbol, accessibilityDescription: L("Putar/Jeda", "Play/Pause"))
         }
     }
 
@@ -1227,6 +1290,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var player: Player?
     private let provider = LyricsProvider()
     private var touchBar: LyricsTouchBar!
+    private var wallpaper: IdleWallpaper!
     private var statusItem: NSStatusItem!
 
     private var track: Track?
@@ -1235,7 +1299,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var lookupFailed = false
     private var lyricsSource = ""
     private var clock = PlaybackClock()
-    private var message = "Menunggu pemutar musik…"
+    private var message = L("Menunggu pemutar musik…", "Waiting for a music player…")
 
     private var alignment: LyricAlignment {
         get { LyricAlignment(rawValue: UserDefaults.standard.string(forKey: "alignment") ?? "") ?? .center }
@@ -1274,7 +1338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        statusItem.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "Lirik")
+        statusItem.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: L("Lirik", "Lyrics"))
         statusItem.button?.imagePosition = .imageLeading
         let menu = NSMenu()
         menu.delegate = self
@@ -1300,7 +1364,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         touchBar.show(message, dimmed: true)
         touchBar.canShow = { [weak self] in self?.wasPlaying == true }
+
+        // Wallpaper hanya muncul sendiri saat lirik tidak tampil; setelah ditutup, lirik kembali kalau lagu masih diputar.
+        wallpaper = IdleWallpaper()
+        wallpaper.canShow = { [weak self] in
+            guard let self else { return false }
+            return self.wasPlaying != true && !self.touchBar.isShown && !self.touchBar.isShowingAppBar
+        }
+        wallpaper.onDismiss = { [weak self] in
+            guard let self, self.wasPlaying == true, !self.touchBar.isShown, !self.touchBar.isShowingAppBar else { return }
+            self.touchBar.present()
+        }
+        touchBar.onPresent = { [weak self] in self?.wallpaper.hide() }
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Untuk uji tampilan: Lyricsbar --show-wallpaper <tema> [--wallpaper-text <teks>]
+            if let i = CommandLine.arguments.firstIndex(of: "--show-wallpaper") {
+                let args = CommandLine.arguments
+                if let j = args.firstIndex(of: "--wallpaper-text"), args.count > j + 1 { WallpaperTheme.customText = args[j + 1] }
+                if args.count > i + 1, let theme = WallpaperTheme(rawValue: args[i + 1]) { self.wallpaper.theme = theme }
+                self.wallpaper.preview()
+            }
             // Untuk uji tampilan: buka langsung mode slider.
             let testArgs = ["--show-brightness", "--show-volume", "--show-app-bar"]
             if testArgs.contains(where: CommandLine.arguments.contains) { self.touchBar.present() }
@@ -1398,20 +1482,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         touchBar.setTrayVisible(true)
     }
 
-    private var playerName: String { player?.name ?? "Pemutar musik" }
+    private var playerName: String { player?.name ?? L("Pemutar musik", "Music player") }
 
     private func apply(_ status: PlayerStatus) {
         switch status {
         case .notRunning:
-            setTrack(nil, message: "Spotify dan Music tidak berjalan")
+            setTrack(nil, message: L("Spotify dan Music tidak berjalan", "Spotify and Music aren't running"))
         case .starting:
-            setTrack(nil, message: "\(playerName) sedang dibuka…")
+            setTrack(nil, message: L("\(playerName) sedang dibuka…", "\(playerName) is opening…"))
         case .stopped:
-            setTrack(nil, message: "\(playerName) berhenti")
+            setTrack(nil, message: L("\(playerName) berhenti", "\(playerName) is stopped"))
         case .denied:
-            setTrack(nil, message: "Izinkan akses ke \(playerName): System Settings › Privacy & Security › Automation")
+            setTrack(nil, message: L("Izinkan akses ke \(playerName): System Settings › Privacy & Security › Automation", "Allow access to \(playerName): System Settings › Privacy & Security › Automation"))
         case .failed(let reason):
-            setTrack(nil, message: "Gagal membaca \(playerName): \(reason)")
+            setTrack(nil, message: L("Gagal membaca \(playerName): \(reason)", "Couldn't read \(playerName): \(reason)"))
         case let .active(current, playing, position, sampledAt):
             if UserDefaults.standard.bool(forKey: "debug") {
                 let entry = String(format: "%@ playing=%d pos=%.2f clock=%.2f lines=%d loading=%d first=%.2f\n",
@@ -1474,7 +1558,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let track else { return (message, true) }
         let nowPlaying = "♪  \(track.title) — \(track.artist)"
         if loading { return (nowPlaying, true) }
-        if lines.isEmpty { return (nowPlaying + (lookupFailed ? "" : "  ·  lirik tidak ditemukan"), true) }
+        if lines.isEmpty { return (nowPlaying + (lookupFailed ? "" : L("  ·  lirik tidak ditemukan", "  ·  lyrics not found")), true) }
 
         let t = clock.now + offset
         // Pencarian biner: baris terakhir yang waktunya <= t.
@@ -1498,7 +1582,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let menuBarLabel = NSTextField(labelWithString: "")
     private let menuBarIcon = NSImageView()
     private static let noteIcon: NSImage? = {
-        let image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "Lirik")
+        let image = NSImage(systemSymbolName: "music.note", accessibilityDescription: L("Lirik", "Lyrics"))
         image?.isTemplate = true
         return image
     }()
@@ -1565,20 +1649,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         if let track {
             info("\(track.title) — \(track.artist)")
-            info(loading ? "Mencari lirik…"
-                 : !lines.isEmpty ? "Lirik dari \(lyricsSource) · \(lines.count) baris"
-                 : lookupFailed ? "Server lirik tidak merespons, mencoba lagi…"
-                 : "Lirik bersinkron tidak ditemukan")
+            info(loading ? L("Mencari lirik…", "Searching for lyrics…")
+                 : !lines.isEmpty ? L("Lirik dari \(lyricsSource) · \(lines.count) baris", "Lyrics from \(lyricsSource) · \(lines.count) lines")
+                 : lookupFailed ? L("Server lirik tidak merespons, mencoba lagi…", "Lyrics server not responding, retrying…")
+                 : L("Lirik bersinkron tidak ditemukan", "No synced lyrics found"))
             menu.addItem(.separator())
             menu.addItem(offsetMenuItem())
             menu.addItem(.separator())
-            action("Cari ulang lirik", #selector(reload))
-            action("Buka folder lirik sendiri…", #selector(openLyricsFolder))
+            action(L("Cari ulang lirik", "Search lyrics again"), #selector(reload))
+            action(L("Buka folder lirik sendiri…", "Open your lyrics folder…"), #selector(openLyricsFolder))
         } else {
             info(message)
         }
         menu.addItem(.separator())
-        action("Tampilkan di Touch Bar", #selector(showTouchBar))
+        action(L("Tampilkan di Touch Bar", "Show on Touch Bar"), #selector(showTouchBar))
         let animationMenu = NSMenu()
         for option in LyricAnimation.allCases {
             let item = NSMenuItem(title: option.title, action: #selector(chooseAnimation(_:)), keyEquivalent: "")
@@ -1587,7 +1671,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.state = option == animation ? .on : .off
             animationMenu.addItem(item)
         }
-        let animationItem = NSMenuItem(title: "Animasi lirik", action: nil, keyEquivalent: "")
+        let animationItem = NSMenuItem(title: L("Animasi lirik", "Lyrics animation"), action: nil, keyEquivalent: "")
         animationItem.submenu = animationMenu
         menu.addItem(animationItem)
         let alignmentMenu = NSMenu()
@@ -1598,15 +1682,129 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.state = option == alignment ? .on : .off
             alignmentMenu.addItem(item)
         }
-        let alignmentItem = NSMenuItem(title: "Perataan lirik", action: nil, keyEquivalent: "")
+        let alignmentItem = NSMenuItem(title: L("Perataan lirik", "Lyrics alignment"), action: nil, keyEquivalent: "")
         alignmentItem.submenu = alignmentMenu
         menu.addItem(alignmentItem)
-        action("Lirik juga di menu bar", #selector(toggleMenuBar), on: showInMenuBar)
-        action("Buka saat login", #selector(toggleLogin), on: SMAppService.mainApp.status == .enabled)
-        if !SystemTouchBar.isAvailable { info("⚠︎ API Touch Bar sistem tidak tersedia di macOS ini") }
+        menu.addItem(wallpaperMenuItem())
+        let languageMenu = NSMenu()
+        for option in AppLanguage.allCases {
+            let item = NSMenuItem(title: option.title, action: #selector(chooseLanguage(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = option.rawValue
+            item.state = option == AppLanguage.selected ? .on : .off
+            languageMenu.addItem(item)
+        }
+        let languageItem = NSMenuItem(title: L("Bahasa", "Language"), action: nil, keyEquivalent: "")
+        languageItem.submenu = languageMenu
+        menu.addItem(languageItem)
+        action(L("Lirik juga di menu bar", "Also show lyrics in menu bar"), #selector(toggleMenuBar), on: showInMenuBar)
+        action(L("Buka saat login", "Open at login"), #selector(toggleLogin), on: SMAppService.mainApp.status == .enabled)
+        if !SystemTouchBar.isAvailable { info(L("⚠︎ API Touch Bar sistem tidak tersedia di macOS ini", "⚠︎ The system Touch Bar API isn't available on this macOS")) }
         menu.addItem(.separator())
-        action("Keluar", #selector(NSApplication.terminate(_:)), key: "q")
+        action(L("Keluar", "Quit"), #selector(NSApplication.terminate(_:)), key: "q")
         menu.items.last?.target = NSApp
+    }
+
+    // MARK: Wallpaper
+
+    /// Submenu "Wallpaper saat idle": pilih tema (langsung dipratinjau di Touch Bar) dan jedanya.
+    private func wallpaperMenuItem() -> NSMenuItem {
+        let submenu = NSMenu()
+        func add(_ title: String, _ selector: Selector, _ value: Any?, on: Bool) {
+            let item = NSMenuItem(title: title, action: selector, keyEquivalent: "")
+            item.target = self
+            item.representedObject = value
+            item.state = on ? .on : .off
+            submenu.addItem(item)
+        }
+        add(L("Mati", "Off"), #selector(chooseWallpaper(_:)), nil, on: wallpaper.theme == nil)
+        submenu.addItem(.separator())
+        for theme in WallpaperTheme.allCases {
+            add(theme.title, #selector(chooseWallpaper(_:)), theme.rawValue, on: wallpaper.theme == theme)
+        }
+        add(L("Ubah teks (\(WallpaperTheme.customText))…", "Edit text (\(WallpaperTheme.customText))…"), #selector(editWallpaperText), nil, on: false)
+        add(L("Lokasi cuaca (\(WeatherService.shared.manualCity?.name ?? "otomatis"))…", "Weather location (\(WeatherService.shared.manualCity?.name ?? "automatic"))…"), #selector(editWeatherCity), nil, on: false)
+        submenu.addItem(.separator())
+        let header = NSMenuItem(title: L("Muncul setelah tidak disentuh", "Show after being idle for"), action: nil, keyEquivalent: "")
+        header.isEnabled = false
+        submenu.addItem(header)
+        for seconds in IdleWallpaper.delays {
+            let title = seconds < 60 ? L("\(Int(seconds)) detik", "\(Int(seconds)) seconds")
+                : L("\(Int(seconds / 60)) menit", seconds == 60 ? "1 minute" : "\(Int(seconds / 60)) minutes")
+            add(title, #selector(chooseWallpaperDelay(_:)), seconds, on: wallpaper.delay == seconds)
+        }
+        submenu.addItem(.separator())
+        let previewItem = NSMenuItem(title: L("Pratinjau sekarang", "Preview now"), action: #selector(previewWallpaper), keyEquivalent: "")
+        previewItem.target = self
+        previewItem.isEnabled = wallpaper.theme != nil
+        submenu.addItem(previewItem)
+
+        let item = NSMenuItem(title: L("Wallpaper saat idle", "Idle wallpaper"), action: nil, keyEquivalent: "")
+        item.submenu = submenu
+        return item
+    }
+
+    @objc private func chooseWallpaper(_ sender: NSMenuItem) {
+        wallpaper.theme = (sender.representedObject as? String).flatMap(WallpaperTheme.init(rawValue:))
+        if wallpaper.theme != nil { previewWallpaper() }
+    }
+
+    /// Teks untuk tema "Teks sendiri" (nama, inisial, apa saja); setelah disimpan, tema itu langsung dipratinjau.
+    @objc private func editWallpaperText() {
+        let field = NSTextField(string: UserDefaults.standard.string(forKey: "wallpaperText") ?? "")
+        field.placeholderString = L("Misalnya nama atau inisial", "For example your name or initials")
+        field.frame = NSRect(x: 0, y: 0, width: 260, height: 24)
+        let alert = NSAlert()
+        alert.messageText = L("Teks wallpaper Touch Bar", "Touch Bar wallpaper text")
+        alert.informativeText = L("Tampil sebagai huruf dot-matrix saat Touch Bar idle. Teks panjang akan berjalan seperti running text.",
+                                  "Shown in dot-matrix letters while the Touch Bar is idle. Long text scrolls like a ticker.")
+        alert.accessoryView = field
+        alert.addButton(withTitle: L("Simpan", "Save"))
+        alert.addButton(withTitle: L("Batal", "Cancel"))
+        alert.window.initialFirstResponder = field
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        WallpaperTheme.customText = field.stringValue
+        wallpaper.theme = .text
+        previewWallpaper()
+    }
+
+    /// Kota untuk tema "Cuaca hari ini"; dikosongkan = lokasi otomatis dari Location Services.
+    @objc private func editWeatherCity() {
+        let field = NSTextField(string: WeatherService.shared.manualCity?.name ?? "")
+        field.placeholderString = L("Kosongkan untuk lokasi otomatis", "Leave empty for automatic location")
+        field.frame = NSRect(x: 0, y: 0, width: 260, height: 24)
+        let alert = NSAlert()
+        alert.messageText = L("Lokasi cuaca", "Weather location")
+        alert.informativeText = L("Isi nama kota, misalnya Yogyakarta. Kosongkan untuk memakai lokasi MacBook (perlu izin Lokasi).",
+                                  "Enter a city, for example London. Leave empty to use the MacBook's location (needs Location permission).")
+        alert.accessoryView = field
+        alert.addButton(withTitle: L("Simpan", "Save"))
+        alert.addButton(withTitle: L("Batal", "Cancel"))
+        alert.window.initialFirstResponder = field
+        NSApp.activate(ignoringOtherApps: true)
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let name = field.stringValue
+        Task {
+            guard await WeatherService.shared.setManualCity(name) else {
+                let error = NSAlert()
+                error.messageText = L("Kota \"\(name)\" tidak ditemukan", "City \"\(name)\" not found")
+                error.runModal()
+                return
+            }
+            wallpaper.theme = .weather
+            previewWallpaper()
+        }
+    }
+
+    @objc private func chooseWallpaperDelay(_ sender: NSMenuItem) {
+        if let seconds = sender.representedObject as? TimeInterval { wallpaper.delay = seconds }
+    }
+
+    /// Ditampilkan sampai Touch Bar disentuh; kalau lagu sedang diputar, lirik kembali sesudahnya.
+    @objc private func previewWallpaper() {
+        if touchBar.isShown { touchBar.hide() }
+        wallpaper.preview()
     }
 
     // MARK: Offset
@@ -1618,7 +1816,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func offsetMenuItem() -> NSMenuItem {
         offsetLabel.font = .menuFont(ofSize: 0)
         offsetLabel.textColor = .labelColor
-        offsetLabel.toolTip = "Positif: lirik muncul lebih awal. Negatif: lirik muncul lebih lambat."
+        offsetLabel.toolTip = L("Positif: lirik muncul lebih awal. Negatif: lirik muncul lebih lambat.", "Positive: lyrics appear earlier. Negative: lyrics appear later.")
         updateOffsetLabel()
 
         func button(_ title: String, _ action: Selector, _ tip: String) -> NSButton {
@@ -1631,9 +1829,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         let stack = NSStackView(views: [
             offsetLabel,
-            button("−0,5", #selector(later), "Lirik muncul 0,5 detik lebih lambat"),
-            button("+0,5", #selector(earlier), "Lirik muncul 0,5 detik lebih awal"),
-            button("Reset", #selector(resetOffset), "Kembalikan offset ke 0"),
+            button(L("−0,5", "−0.5"), #selector(later), L("Lirik muncul 0,5 detik lebih lambat", "Lyrics appear 0.5 s later")),
+            button(L("+0,5", "+0.5"), #selector(earlier), L("Lirik muncul 0,5 detik lebih awal", "Lyrics appear 0.5 s earlier")),
+            button("Reset", #selector(resetOffset), L("Kembalikan offset ke 0", "Set the offset back to 0")),
         ])
         stack.orientation = .horizontal
         stack.spacing = 6
@@ -1649,8 +1847,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func updateOffsetLabel() {
         let value = offset
-        let hint = value > 0 ? " (lebih awal)" : value < 0 ? " (lebih lambat)" : ""
-        offsetLabel.stringValue = String(format: "Offset %+.1f dtk", value).replacingOccurrences(of: ".", with: ",") + hint
+        let hint = value > 0 ? L(" (lebih awal)", " (earlier)") : value < 0 ? L(" (lebih lambat)", " (later)") : ""
+        offsetLabel.stringValue = L(String(format: "Offset %+.1f dtk", value).replacingOccurrences(of: ".", with: ","),
+                                    String(format: "Offset %+.1f s", value)) + hint
     }
 
     @objc private func earlier() { offset += 0.5; updateOffsetLabel() }
@@ -1670,6 +1869,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     @objc private func toggleMenuBar() { showInMenuBar.toggle() }
+
+    @objc private func chooseLanguage(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String, let option = AppLanguage(rawValue: raw) else { return }
+        AppLanguage.selected = option
+        touchBar.languageChanged()
+        // Pesan status diisi ulang pada pembacaan pemutar berikutnya; minta sekarang supaya langsung berganti.
+        message = L("Menunggu pemutar musik…", "Waiting for a music player…")
+        poll()
+    }
 
     /// File .lrc di folder ini (nama "Judul - Artis.lrc") dipakai sebelum mencari online.
     @objc private func openLyricsFolder() {
@@ -1693,7 +1901,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         } catch {
             let alert = NSAlert(error: error)
-            alert.messageText = "Gagal mengubah pengaturan buka saat login"
+            alert.messageText = L("Gagal mengubah pengaturan buka saat login", "Couldn't change the open at login setting")
             alert.runModal()
         }
     }
@@ -1717,6 +1925,20 @@ if let i = CommandLine.arguments.firstIndex(of: "--lookup"), CommandLine.argumen
         exit(0)
     }
     dispatchMain()
+}
+
+// Uji wallpaper tanpa Touch Bar: Lyricsbar --render-wallpaper <tema> <detik mulai> <jumlah frame> <jarak detik> <file.png> [teks]
+if let i = CommandLine.arguments.firstIndex(of: "--render-wallpaper"), CommandLine.arguments.count > i + 5 {
+    let a = CommandLine.arguments
+    guard let theme = WallpaperTheme(rawValue: a[i + 1]) else {
+        print("tema tidak dikenal: \(WallpaperTheme.allCases.map(\.rawValue).joined(separator: ", "))")
+        exit(1)
+    }
+    MainActor.assumeIsolated {
+        let ok = WallpaperRenderer.render(theme, text: a.count > i + 6 ? a[i + 6] : nil, start: Double(a[i + 2]) ?? 0, frames: Int(a[i + 3]) ?? 1,
+                                          interval: Double(a[i + 4]) ?? 0.5, to: a[i + 5])
+        exit(ok ? 0 : 1)
+    }
 }
 
 MainActor.assumeIsolated {

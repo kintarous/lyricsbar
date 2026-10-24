@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
 	<key>CFBundleDisplayName</key>
 	<string>Lyricsbar</string>
 	<key>CFBundleExecutable</key>
@@ -10,6 +12,11 @@
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>local.touchbarlyrics</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>id</string>
+	</array>
 	<key>CFBundleName</key>
 	<string>Lyricsbar</string>
 	<key>CFBundlePackageType</key>
@@ -23,6 +30,10 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Lyricsbar perlu membaca lagu dan posisi pemutaran dari Spotify atau Music supaya liriknya sinkron.</string>
+	<string>Lyricsbar needs to read the current song and playback position from Spotify or Music to keep the lyrics in sync.</string>
+	<key>NSLocationUsageDescription</key>
+	<string>Lyricsbar uses your MacBooks location (to about 1 km) to show todays weather on the Touch Bar wallpaper.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Lyricsbar uses your MacBooks location (to about 1 km) to show todays weather on the Touch Bar wallpaper.</string>
 </dict>
 </plist>

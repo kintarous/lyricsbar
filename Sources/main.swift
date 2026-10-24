@@ -4,6 +4,7 @@
 import AudioToolbox
 import Cocoa
 import CoreAudio
+import IOKit
 import ServiceManagement
 
 // MARK: - Bahasa (Indonesia / Inggris)
@@ -595,6 +596,34 @@ enum SystemTouchBar {
     }
 }
 
+/// Apakah Mac ini punya Touch Bar. Tanpa Touch Bar, lirik tampil di menu bar dan fitur khusus Touch Bar dimatikan.
+enum TouchBarHardware {
+    static let isPresent: Bool = {
+        // Untuk uji atau kalau deteksi keliru: `defaults write local.touchbarlyrics touchBarMode on|off`.
+        switch UserDefaults.standard.string(forKey: "touchBarMode") {
+        case "on": return true
+        case "off": return false
+        default: break
+        }
+        // Apple Silicon: layar Touch Bar terdaftar sebagai perangkat "dispdfr".
+        if exists(IOServiceNameMatching("dispdfr")) { return true }
+        // Intel (chip T1/T2): Touch Bar muncul sebagai perangkat HID.
+        for product in ["TouchBarUserDevice", "Touch Bar Display", "Touch Bar Backlight"] {
+            let matching = IOServiceMatching("IOHIDDevice") as NSMutableDictionary
+            matching["IOPropertyMatch"] = ["Product": product]
+            if exists(matching) { return true }
+        }
+        return false
+    }()
+
+    private static func exists(_ matching: CFDictionary?) -> Bool {
+        guard let matching else { return false }
+        let service = IOServiceGetMatchingService(kIOMainPortDefault, matching)
+        defer { if service != 0 { IOObjectRelease(service) } }
+        return service != 0
+    }
+}
+
 // MARK: - Kontrol sistem (pengganti Control Strip)
 
 /// Kecerahan layar bawaan dan volume output, tanpa izin tambahan.
@@ -687,6 +716,28 @@ enum LyricAlignment: String, CaseIterable {
         case .left: return .left
         case .center: return .center
         case .right: return .right
+        }
+    }
+}
+
+/// Lebar area lirik di menu bar. Di MacBook berponi (notch) yang ikon menu bar-nya banyak, area yang terlalu lebar
+/// bisa disembunyikan macOS, jadi ada pilihan yang lebih sempit.
+enum MenuBarWidth: String, CaseIterable {
+    case narrow, medium, wide
+
+    var points: CGFloat {
+        switch self {
+        case .narrow: return 200
+        case .medium: return 320
+        case .wide: return 460
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .narrow: return L("Sempit", "Narrow")
+        case .medium: return L("Sedang", "Medium")
+        case .wide: return L("Lebar", "Wide")
         }
     }
 }
@@ -1010,6 +1061,7 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
             self?.scheduleReturnToLyrics()
         }
 
+        guard TouchBarHardware.isPresent else { return }
         let tray = NSCustomTouchBarItem(identifier: Self.trayID)
         let icon = NSImage(systemSymbolName: "music.note", accessibilityDescription: L("Lirik", "Lyrics"))!
         tray.view = NSButton(image: icon, target: self, action: #selector(present))
@@ -1018,6 +1070,7 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
     }
 
     @objc func present() {
+        guard TouchBarHardware.isPresent else { return }
         onPresent?()
         returnTimer?.invalidate()
         isShowingAppBar = false
@@ -1036,6 +1089,7 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
 
     /// Ikon ♪ di Control Strip; disembunyikan saat Spotify dan Music tidak berjalan.
     func setTrayVisible(_ visible: Bool) {
+        guard TouchBarHardware.isPresent else { return }
         SystemTouchBar.setControlStripPresence(Self.trayID, visible)
     }
 
@@ -1317,9 +1371,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Bawaannya menyala di Mac tanpa Touch Bar (menu bar satu-satunya tempat lirik tampil).
     private var showInMenuBar: Bool {
-        get { UserDefaults.standard.bool(forKey: "showInMenuBar") }
+        get { UserDefaults.standard.object(forKey: "showInMenuBar") as? Bool ?? !TouchBarHardware.isPresent }
         set { UserDefaults.standard.set(newValue, forKey: "showInMenuBar") }
+    }
+
+    private var menuBarWidth: MenuBarWidth {
+        get { MenuBarWidth(rawValue: UserDefaults.standard.string(forKey: "menuBarWidth") ?? "") ?? .medium }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "menuBarWidth") }
     }
 
     /// Offset per lagu dalam detik; positif = lirik muncul lebih awal.
@@ -1591,7 +1651,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// ikon ♪ tetap di kiri, teks yang terlalu panjang dipotong dengan "…".
     private func renderMenuBar(_ text: String) {
         guard let button = statusItem.button else { return }
-        let key = showInMenuBar ? alignment.rawValue + text : ""
+        let key = showInMenuBar ? alignment.rawValue + menuBarWidth.rawValue + text : ""
         guard key != menuBarKey else { return }
         menuBarKey = key
 
@@ -1623,7 +1683,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 menuBarLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor),
             ])
         }
-        statusItem.length = 320
+        statusItem.length = menuBarWidth.points
         button.image = nil
         menuBarIcon.isHidden = false
         menuBarLabel.isHidden = false
@@ -1662,7 +1722,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             info(message)
         }
         menu.addItem(.separator())
-        action(L("Tampilkan di Touch Bar", "Show on Touch Bar"), #selector(showTouchBar))
+        let hasTouchBar = TouchBarHardware.isPresent
+        if hasTouchBar {
+            action(L("Tampilkan di Touch Bar", "Show on Touch Bar"), #selector(showTouchBar))
+        } else {
+            // Tanpa Touch Bar, menu bar satu-satunya tempat lirik tampil, jadi pilihannya ada di menu utama.
+            action(L("Tampilkan lirik di menu bar", "Show lyrics in menu bar"), #selector(toggleMenuBar), on: showInMenuBar)
+        }
         let animationMenu = NSMenu()
         for option in LyricAnimation.allCases {
             let item = NSMenuItem(title: option.title, action: #selector(chooseAnimation(_:)), keyEquivalent: "")
@@ -1673,7 +1739,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         let animationItem = NSMenuItem(title: L("Animasi lirik", "Lyrics animation"), action: nil, keyEquivalent: "")
         animationItem.submenu = animationMenu
-        menu.addItem(animationItem)
+        // Animasi pergantian baris hanya dipakai di Touch Bar.
+        if hasTouchBar { menu.addItem(animationItem) }
         let alignmentMenu = NSMenu()
         for option in LyricAlignment.allCases {
             let item = NSMenuItem(title: option.title, action: #selector(chooseAlignment(_:)), keyEquivalent: "")
@@ -1685,7 +1752,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let alignmentItem = NSMenuItem(title: L("Perataan lirik", "Lyrics alignment"), action: nil, keyEquivalent: "")
         alignmentItem.submenu = alignmentMenu
         menu.addItem(alignmentItem)
-        menu.addItem(wallpaperMenuItem())
+        if hasTouchBar { menu.addItem(wallpaperMenuItem()) }
         let languageMenu = NSMenu()
         for option in AppLanguage.allCases {
             let item = NSMenuItem(title: option.title, action: #selector(chooseLanguage(_:)), keyEquivalent: "")
@@ -1735,7 +1802,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return item
     }
 
-    /// Submenu "Pengaturan": kapan wallpaper muncul, kapan ditutup, kapan masuk mode tenang, dan lirik di menu bar.
+    /// Submenu "Pengaturan": kapan wallpaper muncul, kapan ditutup, kapan masuk mode tenang (hanya dengan Touch Bar),
+    /// serta lirik di menu bar dan lebarnya.
     private func settingsMenuItem() -> NSMenuItem {
         let submenu = NSMenu()
         func header(_ title: String) {
@@ -1762,27 +1830,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return L("\(Int(seconds / 3600)) jam", seconds == 3600 ? "1 hour" : "\(Int(seconds / 3600)) hours")
         }
 
-        header(L("Wallpaper saat idle", "Idle wallpaper"))
-        choices(L("Muncul setelah Mac tidak dipakai", "Show after the Mac is idle for"),
-                IdleWallpaper.delays.map { (duration($0), $0, wallpaper.delay == $0) }, #selector(chooseWallpaperDelay(_:)))
-        choices(L("Tutup saat", "Close when"), [
-            (L("Touch Bar disentuh saja", "The Touch Bar is touched"), false, !wallpaper.closesOnInput),
-            (L("Disentuh, mengetik, atau klik", "Touched, typing, or clicking"), true, wallpaper.closesOnInput),
-        ], #selector(chooseWallpaperClose(_:)))
-        choices(L("Mode tenang (redup dan pelan)", "Calm mode (dim and slow)"), IdleWallpaper.calmOptions.map { seconds in
-            (seconds < 0 ? L("Tidak pernah", "Never") : L("Setelah \(duration(seconds)) tanpa disentuh", "After \(duration(seconds)) without a touch"),
-             seconds, wallpaper.calmAfter == seconds)
-        }, #selector(chooseWallpaperCalm(_:)))
-        submenu.addItem(.separator())
+        if TouchBarHardware.isPresent {
+            header(L("Wallpaper saat idle", "Idle wallpaper"))
+            choices(L("Muncul setelah Mac tidak dipakai", "Show after the Mac is idle for"),
+                    IdleWallpaper.delays.map { (duration($0), $0, wallpaper.delay == $0) }, #selector(chooseWallpaperDelay(_:)))
+            choices(L("Tutup saat", "Close when"), [
+                (L("Touch Bar disentuh saja", "The Touch Bar is touched"), false, !wallpaper.closesOnInput),
+                (L("Disentuh, mengetik, atau klik", "Touched, typing, or clicking"), true, wallpaper.closesOnInput),
+            ], #selector(chooseWallpaperClose(_:)))
+            choices(L("Mode tenang (redup dan pelan)", "Calm mode (dim and slow)"), IdleWallpaper.calmOptions.map { seconds in
+                (seconds < 0 ? L("Tidak pernah", "Never") : L("Setelah \(duration(seconds)) tanpa disentuh", "After \(duration(seconds)) without a touch"),
+                 seconds, wallpaper.calmAfter == seconds)
+            }, #selector(chooseWallpaperCalm(_:)))
+            submenu.addItem(.separator())
+        }
         header(L("Lirik", "Lyrics"))
-        let menuBar = NSMenuItem(title: L("Lirik juga di menu bar", "Also show lyrics in menu bar"), action: #selector(toggleMenuBar), keyEquivalent: "")
-        menuBar.target = self
-        menuBar.state = showInMenuBar ? .on : .off
-        submenu.addItem(menuBar)
+        if TouchBarHardware.isPresent {
+            let menuBar = NSMenuItem(title: L("Lirik juga di menu bar", "Also show lyrics in menu bar"), action: #selector(toggleMenuBar), keyEquivalent: "")
+            menuBar.target = self
+            menuBar.state = showInMenuBar ? .on : .off
+            submenu.addItem(menuBar)
+        }
+        choices(L("Lebar lirik di menu bar", "Lyrics width in menu bar"),
+                MenuBarWidth.allCases.map { ("\($0.title) (\(Int($0.points)) pt)", $0.rawValue, $0 == menuBarWidth) }, #selector(chooseMenuBarWidth(_:)))
 
         let item = NSMenuItem(title: L("Pengaturan", "Settings"), action: nil, keyEquivalent: "")
         item.submenu = submenu
         return item
+    }
+
+    @objc private func chooseMenuBarWidth(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let width = MenuBarWidth(rawValue: raw) { menuBarWidth = width }
     }
 
     @objc private func chooseWallpaperCalm(_ sender: NSMenuItem) {

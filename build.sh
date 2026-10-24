@@ -29,7 +29,7 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 # Sebagian besar MacBook Pro ber-Touch Bar memakai Intel, jadi build untuk kedua arsitektur lalu digabung.
 for arch in arm64 x86_64; do
     swiftc -O -swift-version 5 -target "$arch-apple-macos13.0" \
-        -framework Cocoa -framework ServiceManagement -framework CoreLocation \
+        -framework Cocoa -framework ServiceManagement -framework CoreLocation -framework IOKit \
         Sources/*.swift -o "build/Lyricsbar-$arch"
 done
 lipo -create build/Lyricsbar-arm64 build/Lyricsbar-x86_64 -output "$APP/Contents/MacOS/Lyricsbar"

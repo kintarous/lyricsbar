@@ -44,6 +44,7 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 |---|---|
 | 🎤 **Lirik sinkron** | Berganti baris tepat waktu, dengan animasi geser ke atas ala Spotify, pudar, atau tanpa animasi |
 | 🎛️ **Control Strip mini** | Kecerahan, volume, mute, ⏮ ⏯ ⏭, langsung dari Touch Bar |
+| 🫧 **Slider Liquid Glass** | Knob kapsul kaca yang membesar, bening seperti lensa, dan melar saat digeser. Warnanya mengikuti warna aksen sistem |
 | 😀 **Emoji** | Satu ketukan untuk memunculkan pemilih emoji dan saran kata bawaan macOS |
 | ↔️ **Perataan** | Rata kiri, tengah, atau kanan, di Touch Bar maupun menu bar |
 | ⏱️ **Offset per lagu** | Lirik terlalu cepat atau lambat? Geser ±0,5 detik, tersimpan per lagu |
@@ -52,9 +53,9 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 | 🔒 **Privat** | Tanpa akun, tanpa API key, tanpa analytics |
 
 <div align="center">
-<img src="docs/preview-slider.png" alt="Pratinjau slider kecerahan bergaya glass" width="100%">
+<img src="docs/preview-slider.png" alt="Pratinjau slider kecerahan bergaya Liquid Glass" width="100%">
 <br>
-<sub><i>Ketuk ☀︎ atau 🔊: slider lebar bergaya glass, kembali ke lirik sendiri setelah 4 detik.</i></sub>
+<sub><i>Ketuk ☀︎ atau 🔊: slider selebar Touch Bar bergaya Liquid Glass, kembali ke lirik sendiri setelah 4 detik.</i></sub>
 </div>
 
 ## Kebutuhan
@@ -85,6 +86,14 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 xattr -dr com.apple.quarantine /Applications/Lyricsbar.app
 ```
 </details>
+
+### Memperbarui ke versi baru
+
+1. Tutup Lyricsbar lewat menu **♪ › Keluar**.
+2. Unduh DMG versi terbaru, lalu seret Lyricsbar ke **Applications** dan pilih **Replace** (Ganti).
+3. Buka lagi Lyricsbar. macOS mungkin meminta **Open Anyway** dan izin akses Spotify/Music sekali lagi untuk versi baru.
+
+Pengaturan, offset per lagu, dan lirik yang tersimpan tetap ada.
 
 ## Cara pakai
 
@@ -169,6 +178,13 @@ Untuk menguji pencarian lirik tanpa memutar lagu:
 build/Lyricsbar.app/Contents/MacOS/Lyricsbar --lookup "Judul" "Artis" 240
 ```
 </details>
+
+## Riwayat versi
+
+| Versi | Perubahan |
+|---|---|
+| [**1.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.1) | Slider kecerahan dan volume bergaya Liquid Glass (knob kapsul kaca, jalur tipis berwarna aksen sistem), dengan animasi sentuh: membesar dengan pegas, bening seperti lensa, dan melar saat digeser cepat |
+| [**1.0**](https://github.com/kintarous/lyricsbar/releases/tag/v1.0) | Rilis pertama: lirik sinkron untuk Spotify dan Apple Music, Control Strip mini, tombol emoji, animasi dan perataan lirik, offset per lagu, mode tidur |
 
 ## Kredit
 

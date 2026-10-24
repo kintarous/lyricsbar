@@ -2514,6 +2514,8 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
         bar.defaultItemIdentifiers = [Self.itemID]
         view.onTouch = { [weak self] in self?.hide() }
         view.scene = theme?.makeScene()
+        // Tanpa Touch Bar tidak ada tempat untuk wallpaper: tidak perlu tombol, pemantau, maupun pengatur waktu.
+        guard TouchBarHardware.isPresent else { return }
 
         let tray = NSCustomTouchBarItem(identifier: Self.trayID)
         tray.view = NSButton(image: NSImage(systemSymbolName: "sparkles", accessibilityDescription: "Wallpaper")!,
@@ -2575,7 +2577,7 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
     @objc func preview() { show(preview: true) }
 
     func show(preview: Bool = false) {
-        guard theme != nil else { return }
+        guard theme != nil, TouchBarHardware.isPresent else { return }
         previewing = preview
         shownAt = ProcessInfo.processInfo.systemUptime
         SystemTouchBar.present(bar, trayItem: Self.trayID)

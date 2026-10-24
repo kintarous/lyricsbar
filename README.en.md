@@ -4,9 +4,9 @@
 
 # Lyricsbar
 
-**Lyrics for the song you're playing, in sync on your Touch Bar.**
+**Lyrics for the song you're playing, in sync on your Touch Bar or menu bar.**
 <br>
-For Spotify and Apple Music on the MacBook Pro.
+For Spotify and Apple Music, on Macs with or without a Touch Bar.
 
 [![Latest release](https://img.shields.io/github/v/release/kintarous/lyricsbar?style=flat-square&label=release&color=2ecc71)](https://github.com/kintarous/lyricsbar/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/kintarous/lyricsbar/total?style=flat-square&label=downloads&color=2ecc71)](https://github.com/kintarous/lyricsbar/releases)
@@ -14,7 +14,7 @@ For Spotify and Apple Music on the MacBook Pro.
 <br>
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white)](#requirements)
 [![Universal](https://img.shields.io/badge/Intel%20%2B%20Apple%20Silicon-universal-555555?style=flat-square)](#requirements)
-[![Touch Bar](https://img.shields.io/badge/Touch%20Bar-required-555555?style=flat-square)](#requirements)
+[![Touch Bar](https://img.shields.io/badge/Touch%20Bar-optional-555555?style=flat-square)](#requirements)
 [![Swift](https://img.shields.io/badge/Swift-5-F05138?style=flat-square&logo=swift&logoColor=white)](Sources/main.swift)
 <br>
 [![Spotify](https://img.shields.io/badge/Spotify-supported-1DB954?style=flat-square&logo=spotify&logoColor=white)](#features)
@@ -53,6 +53,7 @@ For Spotify and Apple Music on the MacBook Pro.
 | 🎧 **Spotify & Apple Music** | Whichever player is playing is used automatically |
 | 🐠 **Idle wallpaper** | When nothing is playing and the Mac has been idle for a while, the Touch Bar shows an animation: fish, a train, rain, a city at night, aurora, a cat, a dino, and more (16 themes), including your own text (a name or initials) in black-and-white dot-matrix letters, and today's weather where you are, in black and white and playable: slide a finger to open an umbrella in the rain, push clouds, wipe away fog, or move the sun. Tap to get the standard buttons back |
 | 🌐 **English & Indonesian** | Indonesian when your macOS language or region is Indonesia, English otherwise. You can also pick one in the ♪ menu |
+| 🖥️ **Works without a Touch Bar too** | On a Mac without a Touch Bar, Lyricsbar shows the lyrics in the menu bar automatically and hides the Touch Bar-only features |
 | 💤 **Stays out of the way** | Returns to the standard Touch Bar when music is paused, and "sleeps" when the player is closed |
 | 🔒 **Private** | No account, no API key, no analytics |
 
@@ -145,7 +146,9 @@ When nothing is playing and your Mac has been idle for a while, the Touch Bar sh
 
 ## Requirements
 
-- 💻 A MacBook Pro **with a Touch Bar** (2016–2022, Intel or Apple Silicon)
+- 💻 Any Mac, Intel or Apple Silicon
+  - **With a Touch Bar** (MacBook Pro 2016–2022): lyrics, controls, and wallpapers on the Touch Bar
+  - **Without a Touch Bar**: lyrics in the menu bar
 - 🍎 **macOS 13 Ventura** or later
 - 🎵 The **Spotify** or **Music** (Apple Music) desktop app
 
@@ -189,6 +192,7 @@ Every setting lives in the **♪** icon in the menu bar.
 
 | Menu | What it does |
 |---|---|
+| Show lyrics in menu bar | Only on Macs without a Touch Bar: turns the menu bar lyrics on or off (on by default) |
 | Offset −0.5 / +0.5 / Reset | Shifts the lyrics timing for this song. **+** = earlier, **−** = later |
 | Search lyrics again | Looks up the lyrics for this song again |
 | Open your lyrics folder… | Where you put your own `.lrc` files |
@@ -196,7 +200,7 @@ Every setting lives in the **♪** icon in the menu bar.
 | Lyrics alignment | Left, center, or right |
 | Idle wallpaper | Pick a theme (it previews right away), your own text, and the weather location |
 | Language | Same as system, Bahasa Indonesia, or English |
-| Settings | **Wallpaper:** show after the Mac is idle (30 seconds–5 minutes), close when (touch only, or also typing/clicking), calm mode (15 minutes–4 hours, or never). **Lyrics:** also show lyrics in the menu bar |
+| Settings | **Wallpaper:** show after the Mac is idle (30 seconds–5 minutes), close when (touch only, or also typing/clicking), calm mode (15 minutes–4 hours, or never). **Lyrics:** also show lyrics in the menu bar, lyrics width in the menu bar (narrow, medium, wide). The Wallpaper section only appears on Macs with a Touch Bar |
 | Open at login | Starts Lyricsbar automatically when you log in |
 </details>
 
@@ -236,6 +240,7 @@ Official Spotify and Apple Music lyrics are **not** used, because there's no off
 
 - The Touch Bar display uses private Apple APIs (like LyricsX, Pock, and MTMR do). A future macOS update could break it.
 - While lyrics are shown, the standard Control Strip is hidden and replaced by Lyricsbar's mini version.
+- On notched MacBooks with many menu bar icons, macOS may hide the menu bar lyrics when there isn't enough room. Choose ♪ › Settings › Lyrics width in menu bar › *Narrow*.
 - Volume can't be changed when sound goes out over HDMI. This is a macOS limitation; the button is shown grayed out.
 - Lyrics accuracy depends on the source. Use the offset to fine-tune.
 

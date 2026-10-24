@@ -4,9 +4,9 @@
 
 # Lyricsbar
 
-**Lirik lagu yang sedang kamu putar, tampil sinkron di Touch Bar.**
+**Lirik lagu yang sedang kamu putar, tampil sinkron di Touch Bar atau menu bar.**
 <br>
-Untuk Spotify dan Apple Music di MacBook Pro.
+Untuk Spotify dan Apple Music, di Mac dengan atau tanpa Touch Bar.
 
 [![Rilis terbaru](https://img.shields.io/github/v/release/kintarous/lyricsbar?style=flat-square&label=rilis&color=2ecc71)](https://github.com/kintarous/lyricsbar/releases/latest)
 [![Unduhan](https://img.shields.io/github/downloads/kintarous/lyricsbar/total?style=flat-square&label=unduhan&color=2ecc71)](https://github.com/kintarous/lyricsbar/releases)
@@ -14,7 +14,7 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 <br>
 [![macOS 13+](https://img.shields.io/badge/macOS-13%2B-000000?style=flat-square&logo=apple&logoColor=white)](#kebutuhan)
 [![Universal](https://img.shields.io/badge/Intel%20%2B%20Apple%20Silicon-universal-555555?style=flat-square)](#kebutuhan)
-[![Touch Bar](https://img.shields.io/badge/Touch%20Bar-wajib-555555?style=flat-square)](#kebutuhan)
+[![Touch Bar](https://img.shields.io/badge/Touch%20Bar-opsional-555555?style=flat-square)](#kebutuhan)
 [![Swift](https://img.shields.io/badge/Swift-5-F05138?style=flat-square&logo=swift&logoColor=white)](Sources/main.swift)
 <br>
 [![Spotify](https://img.shields.io/badge/Spotify-didukung-1DB954?style=flat-square&logo=spotify&logoColor=white)](#fitur)
@@ -53,6 +53,7 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 | 🎧 **Spotify & Apple Music** | Pemutar yang sedang memutar lagu dipakai otomatis |
 | 🐠 **Wallpaper saat idle** | Saat tidak ada lagu dan Mac lama tidak disentuh, Touch Bar menampilkan animasi: ikan, kereta, hujan, kota malam, aurora, kucing, dino, dan lainnya (16 tema), termasuk teks buatanmu sendiri (nama atau inisial) dalam huruf dot-matrix hitam putih, dan cuaca hari ini di lokasimu dalam hitam putih yang bisa dimainkan: geser jari untuk memunculkan payung saat hujan, mendorong awan, menyapu kabut, atau memindah matahari. Ketuk untuk kembali ke tombol bawaan |
 | 🌐 **Indonesia & Inggris** | Bahasa Indonesia kalau bahasa atau wilayah macOS-mu Indonesia, selain itu Inggris. Bisa juga dipilih di menu ♪ |
+| 🖥️ **Tanpa Touch Bar pun bisa** | Di Mac tanpa Touch Bar, Lyricsbar otomatis menampilkan lirik di menu bar dan menyembunyikan fitur khusus Touch Bar |
 | 💤 **Tahu diri** | Kembali ke Touch Bar bawaan saat musik dijeda, dan "tidur" saat pemutar ditutup |
 | 🔒 **Privat** | Tanpa akun, tanpa API key, tanpa analytics |
 
@@ -145,7 +146,9 @@ Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilk
 
 ## Kebutuhan
 
-- 💻 MacBook Pro **dengan Touch Bar** (2016–2022, Intel maupun Apple Silicon)
+- 💻 Mac apa saja, Intel maupun Apple Silicon
+  - **Dengan Touch Bar** (MacBook Pro 2016–2022): lirik, kontrol, dan wallpaper tampil di Touch Bar
+  - **Tanpa Touch Bar**: lirik tampil di menu bar
 - 🍎 **macOS 13 Ventura** atau lebih baru
 - 🎵 App desktop **Spotify** atau **Music** (Apple Music)
 
@@ -189,6 +192,7 @@ Semua pengaturan ada di ikon **♪** di menu bar.
 
 | Menu | Fungsi |
 |---|---|
+| Tampilkan lirik di menu bar | Hanya di Mac tanpa Touch Bar: menyalakan atau mematikan lirik di menu bar (bawaannya menyala) |
 | Offset −0,5 / +0,5 / Reset | Menggeser waktu lirik lagu ini. **+** = lebih awal, **−** = lebih lambat |
 | Cari ulang lirik | Mencari lirik lagu ini lagi |
 | Buka folder lirik sendiri… | Tempat menaruh file `.lrc` buatanmu |
@@ -196,7 +200,7 @@ Semua pengaturan ada di ikon **♪** di menu bar.
 | Perataan lirik | Rata kiri, tengah, atau kanan |
 | Wallpaper saat idle | Pilih tema (langsung dipratinjau), teks sendiri, dan lokasi cuaca |
 | Bahasa | Ikuti sistem, Bahasa Indonesia, atau English |
-| Pengaturan | **Wallpaper:** muncul setelah Mac tidak dipakai (30 detik–5 menit), tutup saat (disentuh saja, atau juga saat mengetik/klik), mode tenang (15 menit–4 jam, atau tidak pernah). **Lirik:** lirik juga di menu bar |
+| Pengaturan | **Wallpaper:** muncul setelah Mac tidak dipakai (30 detik–5 menit), tutup saat (disentuh saja, atau juga saat mengetik/klik), mode tenang (15 menit–4 jam, atau tidak pernah). **Lirik:** lirik juga di menu bar, lebar lirik di menu bar (sempit, sedang, lebar). Bagian Wallpaper hanya ada di Mac dengan Touch Bar |
 | Buka saat login | Menjalankan Lyricsbar otomatis setiap login |
 </details>
 
@@ -236,6 +240,7 @@ Lirik resmi Spotify dan Apple Music **tidak** dipakai, karena tidak ada cara res
 
 - Tampilan Touch Bar memakai API privat Apple (sama seperti LyricsX, Pock, dan MTMR). Update macOS berikutnya bisa merusaknya.
 - Saat lirik tampil, Control Strip bawaan disembunyikan dan diganti versi mini milik Lyricsbar.
+- Di MacBook berponi (notch) yang ikon menu bar-nya banyak, macOS bisa menyembunyikan lirik di menu bar kalau tempatnya tidak cukup. Pilih ♪ › Pengaturan › Lebar lirik di menu bar › *Sempit*.
 - Volume tidak bisa diatur saat suara keluar lewat HDMI. Ini batasan macOS; tombolnya akan tampil abu-abu.
 - Ketepatan lirik bergantung pada sumbernya. Gunakan offset untuk merapikan.
 

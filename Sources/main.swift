@@ -1377,6 +1377,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "showInMenuBar") }
     }
 
+    /// true = ikon ♪ disembunyikan saat Spotify dan Music ditutup (mode tidur lama). Bawaannya ikon tetap tampil, redup.
+    private var hidesIconWhenPlayersClosed: Bool {
+        get { UserDefaults.standard.bool(forKey: "hideIconWhenPlayersClosed") }
+        set { UserDefaults.standard.set(newValue, forKey: "hideIconWhenPlayersClosed") }
+    }
+
+    /// Wallpaper tetap muncul saat Spotify dan Music ditutup (bawaannya ya: wallpaper adalah fitur saat Mac idle).
+    private var wallpaperWhenPlayersClosed: Bool {
+        get { UserDefaults.standard.object(forKey: "wallpaperWhenPlayersClosed") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "wallpaperWhenPlayersClosed") }
+    }
+
     private var menuBarWidth: MenuBarWidth {
         get { MenuBarWidth(rawValue: UserDefaults.standard.string(forKey: "menuBarWidth") ?? "") ?? .medium }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: "menuBarWidth") }
@@ -1396,8 +1408,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         UserDefaults.standard.dictionary(forKey: "offsets") as? [String: Double] ?? [:]
     }
 
+    /// Lyricsbar dibuka lagi (dari Applications, Spotlight, Launchpad) padahal sudah berjalan: munculkan ikon ♪
+    /// dan langsung buka menunya, supaya pengaturan selalu bisa dicapai walau ikonnya sedang disembunyikan.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        setIconHiddenByApp(false)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { self.statusItem.button?.performClick(nil) }
+        return false
+    }
+
+    /// Ikon yang dimunculkan lewat buka ulang disembunyikan lagi setelah menu ditutup, kalau memang disetel begitu.
+    func menuDidClose(_ menu: NSMenu) {
+        guard menu === statusItem.menu, dormant, hidesIconWhenPlayersClosed else { return }
+        DispatchQueue.main.async { self.setIconHiddenByApp(true) }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        // macOS menyimpan status "tersembunyi" secara permanen. Kalau Lyricsbar sendiri yang menyembunyikannya
+        // (mode tidur) lalu app ditutup, ikon tetap hilang saat dibuka lagi; munculkan kembali di sini. Ikon yang
+        // disembunyikan pengguna lewat System Settings tidak disentuh.
+        if UserDefaults.standard.bool(forKey: "iconHiddenByApp") {
+            statusItem.isVisible = true
+            UserDefaults.standard.set(false, forKey: "iconHiddenByApp")
+        }
         statusItem.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: L("Lirik", "Lyrics"))
         statusItem.button?.imagePosition = .imageLeading
         let menu = NSMenu()
@@ -1430,6 +1463,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         wallpaper.canShow = { [weak self] in
             guard let self else { return false }
             return self.wasPlaying != true && !self.touchBar.isShown && !self.touchBar.isShowingAppBar
+                && (!self.dormant || self.wallpaperWhenPlayersClosed)
         }
         wallpaper.onDismiss = { [weak self] in
             guard let self, self.wasPlaying == true, !self.touchBar.isShown, !self.touchBar.isShowingAppBar else { return }
@@ -1542,12 +1576,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         touchBar.hide()
         touchBar.setTrayVisible(false)
         statusItem.menu?.cancelTracking()
-        statusItem.isVisible = false
+        // Bawaannya ikon tetap ada (redup) supaya pengaturan selalu bisa dibuka; menyembunyikannya bisa dipilih.
+        statusItem.button?.appearsDisabled = true
+        if hidesIconWhenPlayersClosed { setIconHiddenByApp(true) }
+    }
+
+    /// Menyembunyikan atau memunculkan ikon ♪ karena mode tidur, sambil mencatatnya supaya bisa dipulihkan saat app dibuka.
+    private func setIconHiddenByApp(_ hidden: Bool) {
+        statusItem.isVisible = !hidden
+        UserDefaults.standard.set(hidden, forKey: "iconHiddenByApp")
     }
 
     private func leaveDormant() {
         dormant = false
-        statusItem.isVisible = true
+        statusItem.button?.appearsDisabled = false
+        setIconHiddenByApp(false)
         touchBar.setTrayVisible(true)
     }
 
@@ -1662,11 +1705,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// kali dipotret, sehingga pemotretan berulang tanpa henti dan memakan sekitar 40% CPU.
     private func renderMenuBar(_ text: String) {
         guard let button = statusItem.button else { return }
-        let key = showInMenuBar ? alignment.rawValue + menuBarWidth.rawValue + text : ""
+        // Saat Spotify dan Music ditutup tidak ada lirik, jadi cukup ikon (tanpa pesan yang memakan tempat).
+        let showsLyrics = showInMenuBar && !dormant
+        let key = showsLyrics ? alignment.rawValue + menuBarWidth.rawValue + text : ""
         guard key != menuBarKey else { return }
         menuBarKey = key
 
-        guard showInMenuBar else {
+        guard showsLyrics else {
             statusItem.length = NSStatusItem.variableLength
             button.image = Self.noteIcon
             button.setAccessibilityLabel(L("Lirik", "Lyrics"))
@@ -1849,6 +1894,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 (seconds < 0 ? L("Tidak pernah", "Never") : L("Setelah \(duration(seconds)) tanpa disentuh", "After \(duration(seconds)) without a touch"),
                  seconds, wallpaper.calmAfter == seconds)
             }, #selector(chooseWallpaperCalm(_:)))
+            let whenClosed = NSMenuItem(title: L("Tetap tampil saat Spotify & Music ditutup", "Keep showing when Spotify & Music are closed"),
+                                        action: #selector(toggleWallpaperWhenPlayersClosed), keyEquivalent: "")
+            whenClosed.target = self
+            whenClosed.state = wallpaperWhenPlayersClosed ? .on : .off
+            submenu.addItem(whenClosed)
             submenu.addItem(.separator())
         }
         header(L("Lirik", "Lyrics"))
@@ -1860,11 +1910,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         choices(L("Lebar lirik di menu bar", "Lyrics width in menu bar"),
                 MenuBarWidth.allCases.map { ("\($0.title) (\(Int($0.points)) pt)", $0.rawValue, $0 == menuBarWidth) }, #selector(chooseMenuBarWidth(_:)))
+        submenu.addItem(.separator())
+        header(L("Ikon menu bar", "Menu bar icon"))
+        let hideIcon = NSMenuItem(title: L("Sembunyikan saat Spotify & Music ditutup", "Hide when Spotify & Music are closed"),
+                                  action: #selector(toggleHideIcon), keyEquivalent: "")
+        hideIcon.target = self
+        hideIcon.state = hidesIconWhenPlayersClosed ? .on : .off
+        submenu.addItem(hideIcon)
+        let hint = NSMenuItem(title: L("Buka Lyricsbar lagi dari Applications untuk memunculkannya", "Open Lyricsbar again from Applications to bring it back"),
+                              action: nil, keyEquivalent: "")
+        hint.isEnabled = false
+        hint.indentationLevel = 1
+        submenu.addItem(hint)
 
         let item = NSMenuItem(title: L("Pengaturan", "Settings"), action: nil, keyEquivalent: "")
         item.submenu = submenu
         return item
     }
+
+    @objc private func toggleHideIcon() { hidesIconWhenPlayersClosed.toggle() }
+    @objc private func toggleWallpaperWhenPlayersClosed() { wallpaperWhenPlayersClosed.toggle() }
 
     @objc private func chooseMenuBarWidth(_ sender: NSMenuItem) {
         if let raw = sender.representedObject as? String, let width = MenuBarWidth(rawValue: raw) { menuBarWidth = width }

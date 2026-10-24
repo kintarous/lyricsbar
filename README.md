@@ -54,7 +54,7 @@ Untuk Spotify dan Apple Music, di Mac dengan atau tanpa Touch Bar.
 | 🐠 **Wallpaper saat idle** | Saat tidak ada lagu dan Mac lama tidak disentuh, Touch Bar menampilkan animasi: ikan, kereta, hujan, kota malam, aurora, kucing, dino, dan lainnya (16 tema), termasuk teks buatanmu sendiri (nama atau inisial) dalam huruf dot-matrix hitam putih, dan cuaca hari ini di lokasimu dalam hitam putih yang bisa dimainkan: geser jari untuk memunculkan payung saat hujan, mendorong awan, menyapu kabut, atau memindah matahari. Ketuk untuk kembali ke tombol bawaan |
 | 🌐 **Indonesia & Inggris** | Bahasa Indonesia kalau bahasa atau wilayah macOS-mu Indonesia, selain itu Inggris. Bisa juga dipilih di menu ♪ |
 | 🖥️ **Tanpa Touch Bar pun bisa** | Di Mac tanpa Touch Bar, Lyricsbar otomatis menampilkan lirik di menu bar dan menyembunyikan fitur khusus Touch Bar |
-| 💤 **Tahu diri** | Kembali ke Touch Bar bawaan saat musik dijeda, dan "tidur" saat pemutar ditutup |
+| 💤 **Tahu diri** | Kembali ke Touch Bar bawaan saat musik dijeda. Saat Spotify dan Music ditutup, ikon ♪ meredup tapi tetap ada, jadi pengaturan selalu bisa dibuka |
 | 🔒 **Privat** | Tanpa akun, tanpa API key, tanpa analytics |
 
 <div align="center">
@@ -185,7 +185,7 @@ Pengaturan, offset per lagu, dan lirik yang tersimpan tetap ada.
 
 ## Cara pakai
 
-Semua pengaturan ada di ikon **♪** di menu bar.
+Semua pengaturan ada di ikon **♪** di menu bar. Ikonnya tidak kelihatan? Buka Lyricsbar lagi dari Applications atau Spotlight: ikonnya muncul dan menunya langsung terbuka.
 
 <details>
 <summary><b>Menu ♪</b></summary>
@@ -200,7 +200,7 @@ Semua pengaturan ada di ikon **♪** di menu bar.
 | Perataan lirik | Rata kiri, tengah, atau kanan |
 | Wallpaper saat idle | Pilih tema (langsung dipratinjau), teks sendiri, dan lokasi cuaca |
 | Bahasa | Ikuti sistem, Bahasa Indonesia, atau English |
-| Pengaturan | **Wallpaper:** muncul setelah Mac tidak dipakai (30 detik–5 menit), tutup saat (disentuh saja, atau juga saat mengetik/klik), mode tenang (15 menit–4 jam, atau tidak pernah). **Lirik:** lirik juga di menu bar, lebar lirik di menu bar (sempit, sedang, lebar). Bagian Wallpaper hanya ada di Mac dengan Touch Bar |
+| Pengaturan | **Wallpaper:** muncul setelah Mac tidak dipakai (30 detik–5 menit), tutup saat (disentuh saja, atau juga saat mengetik/klik), mode tenang (15 menit–4 jam, atau tidak pernah). **Lirik:** lirik juga di menu bar, lebar lirik di menu bar (sempit, sedang, lebar). **Ikon menu bar:** sembunyikan saat Spotify & Music ditutup. Bagian Wallpaper (termasuk *tetap tampil saat Spotify & Music ditutup*) hanya ada di Mac dengan Touch Bar |
 | Buka saat login | Menjalankan Lyricsbar otomatis setiap login |
 </details>
 

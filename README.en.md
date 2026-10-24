@@ -54,7 +54,7 @@ For Spotify and Apple Music, on Macs with or without a Touch Bar.
 | 🐠 **Idle wallpaper** | When nothing is playing and the Mac has been idle for a while, the Touch Bar shows an animation: fish, a train, rain, a city at night, aurora, a cat, a dino, and more (16 themes), including your own text (a name or initials) in black-and-white dot-matrix letters, and today's weather where you are, in black and white and playable: slide a finger to open an umbrella in the rain, push clouds, wipe away fog, or move the sun. Tap to get the standard buttons back |
 | 🌐 **English & Indonesian** | Indonesian when your macOS language or region is Indonesia, English otherwise. You can also pick one in the ♪ menu |
 | 🖥️ **Works without a Touch Bar too** | On a Mac without a Touch Bar, Lyricsbar shows the lyrics in the menu bar automatically and hides the Touch Bar-only features |
-| 💤 **Stays out of the way** | Returns to the standard Touch Bar when music is paused, and "sleeps" when the player is closed |
+| 💤 **Stays out of the way** | Returns to the standard Touch Bar when music is paused. When Spotify and Music are closed, the ♪ icon dims but stays put, so the settings are always reachable |
 | 🔒 **Private** | No account, no API key, no analytics |
 
 <div align="center">
@@ -185,7 +185,7 @@ Your settings, per-song offsets, and saved lyrics are kept.
 
 ## How to use
 
-Every setting lives in the **♪** icon in the menu bar.
+Every setting lives in the **♪** icon in the menu bar. Can't see the icon? Open Lyricsbar again from Applications or Spotlight: the icon appears and its menu opens right away.
 
 <details>
 <summary><b>The ♪ menu</b></summary>
@@ -200,7 +200,7 @@ Every setting lives in the **♪** icon in the menu bar.
 | Lyrics alignment | Left, center, or right |
 | Idle wallpaper | Pick a theme (it previews right away), your own text, and the weather location |
 | Language | Same as system, Bahasa Indonesia, or English |
-| Settings | **Wallpaper:** show after the Mac is idle (30 seconds–5 minutes), close when (touch only, or also typing/clicking), calm mode (15 minutes–4 hours, or never). **Lyrics:** also show lyrics in the menu bar, lyrics width in the menu bar (narrow, medium, wide). The Wallpaper section only appears on Macs with a Touch Bar |
+| Settings | **Wallpaper:** show after the Mac is idle (30 seconds–5 minutes), close when (touch only, or also typing/clicking), calm mode (15 minutes–4 hours, or never). **Lyrics:** also show lyrics in the menu bar, lyrics width in the menu bar (narrow, medium, wide). **Menu bar icon:** hide when Spotify & Music are closed. The Wallpaper section (including *keep showing when Spotify & Music are closed*) only appears on Macs with a Touch Bar |
 | Open at login | Starts Lyricsbar automatically when you log in |
 </details>
 

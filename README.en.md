@@ -64,7 +64,9 @@ For Spotify and Apple Music on the MacBook Pro.
 
 ## Idle wallpaper
 
-When nothing is playing and your Mac has been idle for a while, the Touch Bar shows the animation you picked. **Tap** to get the standard buttons back. Choose a theme and how long to wait in ♪ › **Idle wallpaper**; picking a theme shows it on the Touch Bar right away.
+When nothing is playing and your Mac has been idle for a while, the Touch Bar shows the animation you picked. It stays up while you type or click; **tap** the Touch Bar to get the standard buttons back (or choose ♪ › Settings › Close when › *Touched, typing, or clicking*). Choose a theme in ♪ › **Idle wallpaper**; picking a theme shows it on the Touch Bar right away. How long to wait, when it closes, and calm mode live in ♪ › **Settings**.
+
+**Safe for the Touch Bar's OLED screen:** the whole picture shifts by a few pixels from time to time, peak brightness is capped, elements that stay put (temperature, sun, moon, ground line) are dimmed and drift slowly, and after a long time on screen without a touch (1 hour by default; 15 minutes to 4 hours, or never), the animation dims and slows down until you touch it again.
 
 <div align="center">
 
@@ -75,7 +77,7 @@ When nothing is playing and your Mac has been idle for a while, the Touch Bar sh
 <sub><i>Today's weather where you are. Slide a finger: an umbrella in the rain, clouds you can push, fog you can wipe away, a sun you can move</i></sub>
 
 <img src="docs/wallpapers/dino.gif" alt="Dino runner wallpaper" width="100%">
-<sub><i>Dino runner: runs across the bar and jumps the cactus right in the middle</i></sub>
+<sub><i>Dino runner: runs into the middle of the bar, then jumps small and large cacti. From a score of 450, birds show up: jump the low ones, duck under the middle ones, let the high ones fly by</i></sub>
 
 <img src="docs/wallpapers/fish.gif" alt="Swimming fish wallpaper" width="100%">
 <sub><i>Swimming fish</i></sub>
@@ -189,9 +191,9 @@ Every setting lives in the **♪** icon in the menu bar.
 | Open your lyrics folder… | Where you put your own `.lrc` files |
 | Lyrics animation | Slide up, fade, or no animation |
 | Lyrics alignment | Left, center, or right |
-| Idle wallpaper | Pick a theme (it previews right away), your own text, the weather location, and how long to wait |
+| Idle wallpaper | Pick a theme (it previews right away), your own text, and the weather location |
 | Language | Same as system, Bahasa Indonesia, or English |
-| Also show lyrics in menu bar | Shows the current lyric line in the menu bar |
+| Settings | **Wallpaper:** show after the Mac is idle (30 seconds–5 minutes), close when (touch only, or also typing/clicking), calm mode (15 minutes–4 hours, or never). **Lyrics:** also show lyrics in the menu bar |
 | Open at login | Starts Lyricsbar automatically when you log in |
 </details>
 
@@ -272,6 +274,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Version | Changes |
 |---|---|
+| [**1.3**](https://github.com/kintarous/lyricsbar/releases/tag/v1.3) | The wallpaper stays up while you type and only closes when you touch the Touch Bar (configurable). OLED protection: pixel shift, capped brightness, dimmed static elements, and a calm mode with a choice of timings. Chrome-style dino runner: runs into the middle, jumps small and large cacti, and dodges birds at three heights. New Settings menu |
 | [**1.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.2) | Idle Touch Bar wallpaper with 16 themes, including your own text in black-and-white dot-matrix letters and today's weather that you can play with using your finger. English language (follows your macOS language or region, or pick it in the ♪ menu) and an English README |
 | [**1.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.1) | Liquid Glass brightness and volume sliders (glass capsule knob, thin track in the system accent color), with touch animations: springy growth, lens-like clarity, and stretching on fast drags |
 | [**1.0**](https://github.com/kintarous/lyricsbar/releases/tag/v1.0) | First release: synced lyrics for Spotify and Apple Music, mini Control Strip, emoji button, lyrics animation and alignment, per-song offset, sleep mode |

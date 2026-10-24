@@ -330,7 +330,8 @@ final class TrainScene: WallpaperScene {
             let twinkle = 0.35 + 0.35 * sin(time * 2 + CGFloat(i))
             ctx.fill(color(0xFFFFFF, twinkle), CGRect(x: star.x, y: star.y, width: 0.8, height: 0.8))
         }
-        let moon = CGPoint(x: w * 0.82, y: h - 8)
+        // Bulan bergeser pelan supaya tidak membekas di layar OLED.
+        let moon = CGPoint(x: w * 0.82 + 40 * sin(time / 170), y: h - 8)
         ctx.glow(color(0xF5F3CE, 0.25), moon, 14)
         ctx.fillEllipse(color(0xF5F3CE), moon, 4.5, 4.5)
 
@@ -565,7 +566,7 @@ final class SkyScene: WallpaperScene {
 
     override func draw(_ ctx: CGContext) {
         ctx.verticalGradient([color(0x1B2A4A), color(0x4A3558), color(0x7A4A4F)], bounds)
-        let sun = CGPoint(x: w * 0.3, y: 0)
+        let sun = CGPoint(x: w * 0.3 + 60 * sin(time / 200), y: 0)
         ctx.glow(color(0xFFB36B, 0.45), sun, 60)
         ctx.fillEllipse(color(0xFFC983), sun, 9, 9)
 
@@ -648,7 +649,7 @@ final class CityScene: WallpaperScene {
         for (i, star) in stars.enumerated() {
             ctx.fill(color(0xFFFFFF, 0.25 + 0.2 * sin(time + CGFloat(i))), CGRect(x: star.x, y: star.y, width: 0.7, height: 0.7))
         }
-        let moon = CGPoint(x: w * 0.12, y: h - 8)
+        let moon = CGPoint(x: w * 0.12 + 40 * sin(time / 170), y: h - 8)
         ctx.glow(color(0xE8EEFF, 0.25), moon, 12)
         ctx.fillEllipse(color(0xE8EEFF), moon, 4, 4)
         ctx.fillEllipse(color(0x0B0F20), CGPoint(x: moon.x + 1.8, y: moon.y + 1), 3.4, 3.4)
@@ -1166,8 +1167,9 @@ final class AntsScene: WallpaperScene {
 
     private var ants: [Ant] = []
     private var specks: [CGPoint] = []
-    private var cookieX: CGFloat { 26 }
-    private var hillX: CGFloat { w - 30 }
+    // Kue dan sarang bergeser sedikit bolak-balik supaya tidak diam di piksel yang sama.
+    private var cookieX: CGFloat { 26 + 8 * sin(time / 120) }
+    private var hillX: CGFloat { w - 30 - 8 * sin(time / 140) }
 
     override func layout() {
         specks = (0..<Int(w / 4)).map { _ in CGPoint(x: rnd(0, w), y: rnd(0, h)) }
@@ -1387,7 +1389,10 @@ final class SnakeScene: WallpaperScene {
 
 // MARK: Dino runner (main sendiri)
 
-/// Dino berlari dari kiri ke kanan melintasi Touch Bar dan melompati kaktus tepat di tengah bar.
+/// Dino berlari masuk dari kiri sampai ke tengah bar, lalu terus berlari di tengah sementara rintangan ala
+/// Chrome Dino datang dari kanan: kaktus kecil (1–3) dan kaktus besar (1–2) dilompati; setelah skor 450 muncul
+/// burung di tiga ketinggian: rendah dilompati, tengah ditunduki, tinggi lewat di atas kepala.
+/// Posisi "tengah" bergeser pelan supaya dino tidak diam di piksel yang sama (layar OLED).
 final class DinoScene: WallpaperScene {
     private static let body = [
         ".........########",
@@ -1410,8 +1415,25 @@ final class DinoScene: WallpaperScene {
         ["...##..###.......", "....#...##......."],
     ]
     private static let legsAir = ["...##..##........", "...##..##........"]
-    private static let cactus = [
+    private static let duck = [
+        "............#######.",
+        "#..........##.######",
+        "##.........#########",
+        "###################.",
+        ".#################..",
+        "..###########.......",
+        "...#########........",
+    ]
+    private static let duckLegs = [
+        ["...##..##...........", "...#....#..........."],
+        ["....##.##...........", "........##.........."],
+    ]
+    private static let smallCactus = [
         "..#..", "..#.#", "#.#.#", "#.#.#", "#.###", "###..", "..#..", "..#..", "..#..", "..#..",
+    ]
+    private static let largeCactus = [
+        "...#...", "..###..", "..###.#", "#.###.#", "#.###.#", "#.#####",
+        "#.###..", "#####..", "..###..", "..###..", "..###..", "..###..",
     ]
     private static let bird = [
         ["....#.......", "....##......", "..#.###.....", ".##########.", "....#####..."],
@@ -1419,68 +1441,126 @@ final class DinoScene: WallpaperScene {
     ]
     private static let cloud = ["....######....", "..##......##..", "##..........##", "##############"]
 
-    private let dinoWidth: CGFloat = 17
-    private let ground: CGFloat = 2
-    private let speed: CGFloat = 120
-    /// Tepi kiri dino; nil = jeda sebelum putaran berikutnya.
-    private var dinoX: CGFloat? = -20
-    private var wait: CGFloat = 0
-    private var jumped = false
-    private var jump: CGFloat = 0
-    private var jumpVelocity: CGFloat = 0
-    private var cactusCount = 1
-    private var stride: CGFloat = 0
-    private var score = 0
-    private var bird: CGPoint?
-    private var clouds: [CGPoint] = []
-
-    override func layout() {
-        clouds = (0..<Int(w / 200) + 1).map { _ in CGPoint(x: rnd(0, w), y: rnd(18, 24)) }
+    private enum Kind {
+        case smallCactus(count: Int)
+        case largeCactus(count: Int)
+        case bird(Altitude)
     }
 
-    private var cactusWidth: CGFloat { CGFloat(cactusCount) * 6 - 0.5 }
-    private var cactusX: CGFloat { (w - cactusWidth) / 2 }
+    /// Ketinggian burung: rendah dilompati, tengah ditunduki, tinggi dibiarkan lewat.
+    private enum Altitude: CaseIterable {
+        case low, middle, high
+
+        var y: CGFloat {
+            switch self {
+            case .low: return 1.8
+            case .middle: return 11
+            case .high: return 19.5
+            }
+        }
+    }
+
+    private struct Obstacle {
+        var x: CGFloat
+        var kind: Kind
+        var passed = false
+
+        var width: CGFloat {
+            switch kind {
+            case .smallCactus(let count): return CGFloat(count) * 5.5 - 0.5
+            case .largeCactus(let count): return CGFloat(count) * 7.5 - 0.5
+            case .bird: return 12
+            }
+        }
+
+        /// Rintangan yang harus dilompati.
+        var mustJump: Bool {
+            switch kind {
+            case .smallCactus, .largeCactus, .bird(.low): return true
+            case .bird: return false
+            }
+        }
+    }
+
+    private let dinoWidth: CGFloat = 17
+    /// Tanah sengaja rendah supaya kaktus besar tetap bisa dilompati di Touch Bar setinggi 30 pt.
+    private let ground: CGFloat = 0.5
+    /// Lompatan setinggi 12,7 pt; puncaknya dicapai 0,29 detik setelah melompat.
+    private let jumpSpeed: CGFloat = 87.3
+    private let gravity: CGFloat = 300
+    private var apexTime: CGFloat { jumpSpeed / gravity }
+
+    /// Tepi kiri dino; mulai di luar layar kiri, lalu berlari masuk sampai ke tengah.
+    private var dinoX: CGFloat = -24
+    private var arrived = false
+    private var jump: CGFloat = 0
+    private var jumpVelocity: CGFloat = 0
+    private var ducking = false
+    private var speed: CGFloat = 130
+    private var distance: CGFloat = 0
+    /// Jarak tempuh sejak dino sampai di tengah; skor ala Chrome sekitar 10 poin per detik di awal.
+    private var run: CGFloat = 0
+    private var score: Int { Int(run / 13) }
+    private var obstacles: [Obstacle] = []
+    private var clouds: [CGPoint] = []
+
+    /// Titik tengah tempat dino berlari, bergeser ±40 pt dalam hitungan menit.
+    private var home: CGFloat { (w - dinoWidth) / 2 + 40 * sin(time / 90) }
+
+    override func layout() {
+        clouds = (0..<Int(w / 200) + 1).map { _ in CGPoint(x: rnd(0, w), y: rnd(20, 25)) }
+    }
+
+    private func randomObstacle() -> Kind {
+        let roll = CGFloat.random(in: 0..<1)
+        // Burung baru muncul setelah skor 450, seperti di Chrome.
+        if score >= 450, roll < 0.25 { return .bird(Altitude.allCases.randomElement()!) }
+        return roll < 0.65 ? .smallCactus(count: [1, 1, 2, 3].randomElement()!) : .largeCactus(count: [1, 1, 2].randomElement()!)
+    }
 
     override func update(_ dt: CGFloat) {
+        distance += speed * dt
         for i in clouds.indices {
-            clouds[i].x -= 6 * dt
-            if clouds[i].x < -20 { clouds[i] = CGPoint(x: w + rnd(0, 100), y: rnd(18, 24)) }
-        }
-        if var b = bird {
-            b.x -= 70 * dt
-            bird = b.x < -20 ? nil : b
-        } else if chance(dt * 0.08) {
-            bird = CGPoint(x: w + 10, y: rnd(22, 24))
+            clouds[i].x -= speed * 0.08 * dt
+            if clouds[i].x < -20 { clouds[i] = CGPoint(x: w + rnd(0, 100), y: rnd(20, 25)) }
         }
 
-        guard let x = dinoX else {
-            wait -= dt
-            if wait <= 0 {
-                // Putaran baru: masuk lagi dari kiri, kaktus di tengah bisa berganti jumlah.
-                dinoX = -dinoWidth - 4
-                jumped = false
-                cactusCount = [1, 1, 2].randomElement()!
+        // Masuk dari kiri lebih cepat dari jalannya dunia, lalu mengikuti titik tengah yang bergeser pelan.
+        if arrived {
+            dinoX += (home - dinoX) * min(1, dt * 2)
+        } else {
+            dinoX += 90 * dt
+            if dinoX >= home { arrived = true }
+        }
+
+        // Rintangan baru muncul dari kanan setelah dino sampai di tengah.
+        if arrived {
+            run += speed * dt
+            speed = min(210, speed + dt * 0.4)
+            for i in obstacles.indices { obstacles[i].x -= speed * dt }
+            obstacles.removeAll { $0.x < -30 }
+            if (obstacles.last?.x ?? -.infinity) < w - rnd(170, 360) {
+                obstacles.append(Obstacle(x: w + 10, kind: randomObstacle()))
             }
-            return
-        }
-        let next = x + speed * dt
-        dinoX = next
-        stride += speed * dt
-        if next > w + 4 {
-            dinoX = nil
-            wait = rnd(0.8, 1.6)
-            return
+            for i in obstacles.indices where !obstacles[i].passed && obstacles[i].x + obstacles[i].width < dinoX {
+                obstacles[i].passed = true
+            }
         }
 
-        // Puncak lompatan (0,27 detik setelah melompat) tepat saat kaki dino di atas kaktus di tengah bar.
-        if !jumped, next + 6 >= w / 2 - speed * 0.27 {
-            jumped = true
-            jumpVelocity = 86.5
-            score += 1
+        let feet = dinoX + 6.5
+        ducking = false
+        for o in obstacles where o.x + o.width > dinoX - 2 {
+            if o.mustJump {
+                // Puncak lompatan tepat saat kaki di atas tengah rintangan.
+                let center = o.x + o.width / 2
+                if jump == 0, jumpVelocity == 0, center - feet <= speed * apexTime, center > feet { jumpVelocity = jumpSpeed }
+            } else if case .bird(.middle) = o.kind, o.x - (dinoX + 20) < speed * 0.25 {
+                ducking = true
+            }
         }
         if jumpVelocity != 0 || jump > 0 {
             jump += jumpVelocity * dt
-            jumpVelocity -= 320 * dt
+            jumpVelocity -= gravity * dt
             if jump <= 0 {
                 jump = 0
                 jumpVelocity = 0
@@ -1493,22 +1573,39 @@ final class DinoScene: WallpaperScene {
         ctx.fill(color(0x000000), bounds)
         for c in clouds { ctx.pixels(Self.cloud, at: c, scale: 1, color: color(0x3A3A3A)) }
 
-        ctx.fill(ink, CGRect(x: 0, y: ground, width: w, height: 0.8))
-        for k in 0...Int(w / 7) where hash(k) < 0.35 {
-            ctx.fill(color(0x8A8A8A), CGRect(x: CGFloat(k) * 7, y: hash(k + 7) < 0.5 ? 0.3 : 1, width: hash(k + 3) < 0.5 ? 1 : 2, height: 0.6))
+        // Garis tanah selebar bar selalu ada, jadi dibuat lebih redup dari dino dan rintangan.
+        ctx.fill(color(0x6E6E6E), CGRect(x: 0, y: ground, width: w, height: 0.8))
+        let first = Int(floor(distance / 7))
+        for k in first...(first + Int(w / 7) + 1) where hash(k) < 0.35 {
+            let x = CGFloat(k) * 7 - distance
+            ctx.fill(color(0x4A4A4A), CGRect(x: x, y: 0, width: hash(k + 3) < 0.5 ? 1 : 2, height: 0.4))
         }
 
-        for j in 0..<cactusCount {
-            ctx.pixels(Self.cactus, at: CGPoint(x: cactusX + CGFloat(j) * 6, y: ground), scale: 1.1, color: ink)
+        for o in obstacles {
+            switch o.kind {
+            case .smallCactus(let count):
+                for j in 0..<count {
+                    ctx.pixels(Self.smallCactus, at: CGPoint(x: o.x + CGFloat(j) * 5.5, y: ground), scale: 1, color: ink)
+                }
+            case .largeCactus(let count):
+                for j in 0..<count {
+                    ctx.pixels(Self.largeCactus, at: CGPoint(x: o.x + CGFloat(j) * 7.5, y: ground), scale: 1, color: ink)
+                }
+            case .bird(let altitude):
+                ctx.pixels(Self.bird[Int(time * 6) % 2], at: CGPoint(x: o.x, y: altitude.y), scale: 1, color: ink)
+            }
         }
-        if let b = bird { ctx.pixels(Self.bird[Int(time * 6) % 2], at: b, scale: 1, color: ink) }
 
-        if let x = dinoX {
-            let legs = jump > 0 ? Self.legsAir : Self.legs[Int(stride / 12) % 2]
-            ctx.pixels(Self.body + legs, at: CGPoint(x: x, y: ground + 0.8 + jump), scale: 1, color: ink)
+        let step = Int(distance / 12) % 2
+        let base = CGPoint(x: dinoX, y: ground + 0.8 + jump)
+        if ducking, jump == 0 {
+            ctx.pixels(Self.duck + Self.duckLegs[step], at: base, scale: 1, color: ink)
+        } else {
+            ctx.pixels(Self.body + (jump > 0 ? Self.legsAir : Self.legs[step]), at: base, scale: 1, color: ink)
         }
 
-        text(String(format: "%05d", score % 100_000), at: CGPoint(x: w - 40, y: h - 10), size: 8, color: color(0x8A8A8A), mono: true)
+        text(String(format: "%05d", score % 100_000), at: CGPoint(x: w - 40 - 30 * (1 + sin(time / 150)), y: h - 10), size: 8,
+             color: color(0x5A5A5A), mono: true)
     }
 }
 
@@ -1824,6 +1921,8 @@ final class WeatherScene: WallpaperScene {
     private var nextStrike: CGFloat = 2
 
     private var bodyX: CGFloat = 0
+    /// Posisi matahari/bulan yang tampil: titik pilihan (bodyX) ditambah geseran pelan supaya tidak membekas di OLED.
+    private var bodyCenterX: CGFloat { bodyX + 50 * sin(time / 200) }
     private var touchX: CGFloat?
     private var lastTouchX: CGFloat = 0
     private var holdingBody = false
@@ -1911,7 +2010,7 @@ final class WeatherScene: WallpaperScene {
     override func touchBegan(at x: CGFloat) {
         touchX = x
         lastTouchX = x
-        holdingBody = showsBody && abs(x - bodyX) < 30
+        holdingBody = showsBody && abs(x - bodyCenterX) < 30
         if condition == .thunder { strike(at: x) }
     }
 
@@ -1919,7 +2018,7 @@ final class WeatherScene: WallpaperScene {
         let dx = x - lastTouchX
         lastTouchX = x
         touchX = x
-        if holdingBody { bodyX = max(12, min(w - 160, x)) }
+        if holdingBody { bodyX = max(12, min(w - 160, x)) - (bodyCenterX - bodyX) }
         // Awan di dekat jari ikut terdorong.
         for i in clouds.indices where abs(clouds[i].x - x) < 45 { clouds[i].x += dx * 0.8 }
         if condition == .fog { fogHoles.append((x, 1)) }
@@ -2049,7 +2148,7 @@ final class WeatherScene: WallpaperScene {
     }
 
     private func drawBody(_ ctx: CGContext, faded: Bool) {
-        let body = CGPoint(x: bodyX, y: 17)
+        let body = CGPoint(x: bodyCenterX, y: 17)
         let strength: CGFloat = faded ? 0.35 : 1
         let held: CGFloat = holdingBody ? 1 : 0
         if isDay {
@@ -2110,11 +2209,12 @@ final class WeatherScene: WallpaperScene {
 
     /// Suhu, kondisi, dan nama kota di kanan; bergeser pelan supaya tidak membekas di layar OLED.
     private func drawInfo(_ ctx: CGContext) {
-        let right = w - 14 - 10 * (1 + sin(time / 40))
-        let secondary = NSColor(white: 1, alpha: 0.6)
+        let right = w - 14 - 70 * (1 + sin(time / 180))
+        let primary = NSColor(white: 1, alpha: 0.85)
+        let secondary = NSColor(white: 1, alpha: 0.55)
         // Bayangan lembut di belakang tulisan supaya tetap terbaca di atas awan.
         if let shade = CGGradient(colorsSpace: sRGB, colors: [color(0x000000, 0), color(0x000000, 0.6)] as CFArray, locations: nil) {
-            ctx.drawLinearGradient(shade, start: CGPoint(x: w - 190, y: 0), end: CGPoint(x: w - 70, y: 0), options: .drawsAfterEndLocation)
+            ctx.drawLinearGradient(shade, start: CGPoint(x: right - 176, y: 0), end: CGPoint(x: right - 56, y: 0), options: .drawsAfterEndLocation)
         }
         guard let weather else {
             let message = WeatherService.shared.status as NSString
@@ -2127,7 +2227,7 @@ final class WeatherScene: WallpaperScene {
         let bigFont = NSFont.systemFont(ofSize: 17, weight: .semibold)
         let bigSize = temperature.size(withAttributes: [.font: bigFont])
         temperature.draw(at: CGPoint(x: right - bigSize.width, y: (h - bigSize.height) / 2),
-                         withAttributes: [.font: bigFont, .foregroundColor: NSColor.white])
+                         withAttributes: [.font: bigFont, .foregroundColor: primary])
 
         let smallFont = NSFont.systemFont(ofSize: 9, weight: .medium)
         let lines = [weather.condition.label, weather.place].compactMap { $0 } as [NSString]
@@ -2136,7 +2236,7 @@ final class WeatherScene: WallpaperScene {
         for (i, line) in lines.enumerated() {
             let size = line.size(withAttributes: [.font: smallFont])
             line.draw(at: CGPoint(x: right - bigSize.width - 8 - size.width, y: y),
-                      withAttributes: [.font: smallFont, .foregroundColor: i == 0 ? NSColor.white : secondary])
+                      withAttributes: [.font: smallFont, .foregroundColor: i == 0 ? primary : secondary])
             y -= lineHeight
         }
     }
@@ -2201,14 +2301,35 @@ enum WallpaperRenderer {
 // MARK: - Tampilan dan pengatur
 
 /// View di Touch Bar yang menjalankan satu adegan pada 30 fps, hanya selama tampil.
+///
+/// Penjaga OLED (Touch Bar memakai layar OLED yang bisa burn-in kalau ada piksel terang yang diam lama):
+/// seluruh gambar digeser beberapa piksel secara berkala, kecerahan maksimumnya dibatasi, dan setelah lama
+/// tampil tanpa disentuh, animasinya diredupkan dan diperlambat ("tenang").
 @MainActor
 final class WallpaperView: NSView {
     var scene: WallpaperScene? {
         didSet { needsDisplay = true }
     }
     var onTouch: (() -> Void)?
+    /// Mode tenang: lebih redup, 15 fps, dan bergerak setengah kecepatan. Kembali normal saat disentuh.
+    var isCalm = false {
+        didSet {
+            guard isCalm != oldValue, timer != nil else { return }
+            stop()
+            start()
+        }
+    }
     private var timer: Timer?
     private var lastFrame: TimeInterval?
+
+    /// Kecerahan maksimum normal dan saat tenang (1 = putih penuh).
+    private let brightness: CGFloat = 0.8
+    private let calmBrightness: CGFloat = 0.4
+    private var dim: CGFloat = 0.8
+    /// Geseran seluruh gambar (pixel shift): menuju titik acak baru setiap 90 detik, perlahan.
+    private var shift = CGPoint.zero
+    private var shiftTarget = CGPoint.zero
+    private var shiftClock: CGFloat = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -2223,7 +2344,7 @@ final class WallpaperView: NSView {
     func start() {
         guard timer == nil else { return }
         lastFrame = nil
-        let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: isCalm ? 1.0 / 15 : 1.0 / 30, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -2237,10 +2358,19 @@ final class WallpaperView: NSView {
 
     private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
-        let dt = min(0.1, now - (lastFrame ?? now))
+        let dt = CGFloat(min(0.1, now - (lastFrame ?? now)))
         lastFrame = now
         scene?.resize(bounds.size)
-        scene?.step(CGFloat(dt))
+        scene?.step(isCalm ? dt * 0.5 : dt)
+
+        shiftClock -= dt
+        if shiftClock <= 0 {
+            shiftClock = 90
+            shiftTarget = CGPoint(x: CGFloat(Int.random(in: -3...3)), y: CGFloat(Int.random(in: -1...1)))
+        }
+        shift.x += (shiftTarget.x - shift.x) * min(1, dt * 0.5)
+        shift.y += (shiftTarget.y - shift.y) * min(1, dt * 0.5)
+        dim += ((isCalm ? calmBrightness : brightness) - dim) * min(1, dt * 0.2)
         needsDisplay = true
     }
 
@@ -2252,8 +2382,12 @@ final class WallpaperView: NSView {
         scene.resize(bounds.size)
         ctx.saveGState()
         ctx.clip(to: bounds)
+        ctx.translateBy(x: shift.x, y: shift.y)
         scene.draw(ctx)
         ctx.restoreGState()
+        // Lapisan hitam transparan meredupkan semua warna dengan rata, termasuk putih penuh.
+        ctx.setFillColor(CGColor(gray: 0, alpha: 1 - dim))
+        ctx.fill(bounds)
     }
 
     // Sentuhan bisa datang sebagai NSTouch maupun sebagai event mouse, jadi keduanya masuk ke satu gerakan yang sama.
@@ -2269,6 +2403,7 @@ final class WallpaperView: NSView {
     private func began(_ x: CGFloat) {
         guard gesture == nil else { return }
         noteTouch()
+        isCalm = false
         guard scene?.isInteractive == true else { return onTouch?() ?? () }
         gesture = (x, ProcessInfo.processInfo.systemUptime, false)
     }
@@ -2295,20 +2430,26 @@ final class WallpaperView: NSView {
         }
     }
 
+    /// Posisi jari dalam koordinat adegan (dikurangi geseran pixel shift).
     private func touchX(_ event: NSEvent) -> CGFloat? {
-        event.touches(matching: .any, in: self).first?.location(in: self).x
+        event.touches(matching: .any, in: self).first.map { $0.location(in: self).x - shift.x }
+    }
+
+    private func mouseX(_ event: NSEvent) -> CGFloat {
+        convert(event.locationInWindow, from: nil).x - shift.x
     }
 
     override func touchesBegan(with event: NSEvent) { touchX(event).map(began) }
     override func touchesMoved(with event: NSEvent) { touchX(event).map(moved) }
     override func touchesEnded(with event: NSEvent) { ended() }
     override func touchesCancelled(with event: NSEvent) { ended() }
-    override func mouseDown(with event: NSEvent) { began(convert(event.locationInWindow, from: nil).x) }
-    override func mouseDragged(with event: NSEvent) { moved(convert(event.locationInWindow, from: nil).x) }
+    override func mouseDown(with event: NSEvent) { began(mouseX(event)) }
+    override func mouseDragged(with event: NSEvent) { moved(mouseX(event)) }
     override func mouseUp(with event: NSEvent) { ended() }
 }
 
-/// Menampilkan wallpaper di Touch Bar saat Mac lama tidak disentuh, dan menutupnya begitu ada sentuhan.
+/// Menampilkan wallpaper di Touch Bar saat Mac lama tidak dipakai, dan menutupnya saat Touch Bar disentuh
+/// (atau juga saat mengetik/klik, kalau dipilih di menu).
 @MainActor
 final class IdleWallpaper: NSObject, NSTouchBarDelegate {
     static let trayID = NSTouchBarItem.Identifier("local.touchbarlyrics.wallpaper.tray")
@@ -2338,6 +2479,25 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
             return value > 0 ? value : 60
         }
         set { UserDefaults.standard.set(newValue, forKey: "wallpaperDelay") }
+    }
+
+    /// true = juga ditutup saat mengetik, klik, atau scroll; false (bawaan) = hanya saat Touch Bar disentuh.
+    var closesOnInput: Bool {
+        get { UserDefaults.standard.bool(forKey: "wallpaperClosesOnInput") }
+        set { UserDefaults.standard.set(newValue, forKey: "wallpaperClosesOnInput") }
+    }
+
+    /// Pilihan mode tenang di menu; -1 = tidak pernah.
+    static let calmOptions: [TimeInterval] = [15 * 60, 30 * 60, 60 * 60, 2 * 60 * 60, 4 * 60 * 60, -1]
+
+    /// Setelah selama ini tampil tanpa disentuh, wallpaper masuk mode tenang (lebih redup dan lambat); -1 = tidak pernah.
+    /// Bawaannya 1 jam. Untuk uji bisa diisi detik berapa pun: `defaults write local.touchbarlyrics wallpaperCalmAfter -float 10`.
+    var calmAfter: TimeInterval {
+        get {
+            let value = UserDefaults.standard.double(forKey: "wallpaperCalmAfter")
+            return value != 0 ? value : 60 * 60
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "wallpaperCalmAfter") }
     }
 
     private let bar = NSTouchBar()
@@ -2402,7 +2562,9 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
             // Input terakhir yang terjadi selama jari menggeser wallpaper bukan tanda Mac sedang dipakai.
             let inputAt = now - idle
             let fromTouch = (view.touchSpan.lowerBound - 0.3)...(view.touchSpan.upperBound + 0.3) ~= inputAt
-            if (inputAt > shownAt + 0.5 && !fromTouch) || (!previewing && !canShow()) { hide() }
+            let typedOrClicked = closesOnInput && inputAt > shownAt + 0.5 && !fromTouch
+            if typedOrClicked || (!previewing && !canShow()) { return hide() }
+            view.isCalm = calmAfter > 0 && now - max(shownAt, view.touchSpan.upperBound) > calmAfter
             return
         }
         // Setelah ditutup dengan sentuhan, tunggu satu jeda penuh lagi (sentuhan Touch Bar tidak mengubah `idle`).
@@ -2418,6 +2580,7 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
         shownAt = ProcessInfo.processInfo.systemUptime
         SystemTouchBar.present(bar, trayItem: Self.trayID)
         isShown = true
+        view.isCalm = false
         view.start()
     }
 

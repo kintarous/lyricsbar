@@ -330,7 +330,8 @@ final class TrainScene: WallpaperScene {
             let twinkle = 0.35 + 0.35 * sin(time * 2 + CGFloat(i))
             ctx.fill(color(0xFFFFFF, twinkle), CGRect(x: star.x, y: star.y, width: 0.8, height: 0.8))
         }
-        let moon = CGPoint(x: w * 0.82, y: h - 8)
+        // Bulan bergeser pelan supaya tidak membekas di layar OLED.
+        let moon = CGPoint(x: w * 0.82 + 40 * sin(time / 170), y: h - 8)
         ctx.glow(color(0xF5F3CE, 0.25), moon, 14)
         ctx.fillEllipse(color(0xF5F3CE), moon, 4.5, 4.5)
 
@@ -565,7 +566,7 @@ final class SkyScene: WallpaperScene {
 
     override func draw(_ ctx: CGContext) {
         ctx.verticalGradient([color(0x1B2A4A), color(0x4A3558), color(0x7A4A4F)], bounds)
-        let sun = CGPoint(x: w * 0.3, y: 0)
+        let sun = CGPoint(x: w * 0.3 + 60 * sin(time / 200), y: 0)
         ctx.glow(color(0xFFB36B, 0.45), sun, 60)
         ctx.fillEllipse(color(0xFFC983), sun, 9, 9)
 
@@ -648,7 +649,7 @@ final class CityScene: WallpaperScene {
         for (i, star) in stars.enumerated() {
             ctx.fill(color(0xFFFFFF, 0.25 + 0.2 * sin(time + CGFloat(i))), CGRect(x: star.x, y: star.y, width: 0.7, height: 0.7))
         }
-        let moon = CGPoint(x: w * 0.12, y: h - 8)
+        let moon = CGPoint(x: w * 0.12 + 40 * sin(time / 170), y: h - 8)
         ctx.glow(color(0xE8EEFF, 0.25), moon, 12)
         ctx.fillEllipse(color(0xE8EEFF), moon, 4, 4)
         ctx.fillEllipse(color(0x0B0F20), CGPoint(x: moon.x + 1.8, y: moon.y + 1), 3.4, 3.4)
@@ -1166,8 +1167,9 @@ final class AntsScene: WallpaperScene {
 
     private var ants: [Ant] = []
     private var specks: [CGPoint] = []
-    private var cookieX: CGFloat { 26 }
-    private var hillX: CGFloat { w - 30 }
+    // Kue dan sarang bergeser sedikit bolak-balik supaya tidak diam di piksel yang sama.
+    private var cookieX: CGFloat { 26 + 8 * sin(time / 120) }
+    private var hillX: CGFloat { w - 30 - 8 * sin(time / 140) }
 
     override func layout() {
         specks = (0..<Int(w / 4)).map { _ in CGPoint(x: rnd(0, w), y: rnd(0, h)) }
@@ -1493,7 +1495,8 @@ final class DinoScene: WallpaperScene {
         ctx.fill(color(0x000000), bounds)
         for c in clouds { ctx.pixels(Self.cloud, at: c, scale: 1, color: color(0x3A3A3A)) }
 
-        ctx.fill(ink, CGRect(x: 0, y: ground, width: w, height: 0.8))
+        // Garis tanah selebar bar selalu ada, jadi dibuat lebih redup dari dino dan kaktus.
+        ctx.fill(color(0x6E6E6E), CGRect(x: 0, y: ground, width: w, height: 0.8))
         for k in 0...Int(w / 7) where hash(k) < 0.35 {
             ctx.fill(color(0x8A8A8A), CGRect(x: CGFloat(k) * 7, y: hash(k + 7) < 0.5 ? 0.3 : 1, width: hash(k + 3) < 0.5 ? 1 : 2, height: 0.6))
         }
@@ -1508,7 +1511,8 @@ final class DinoScene: WallpaperScene {
             ctx.pixels(Self.body + legs, at: CGPoint(x: x, y: ground + 0.8 + jump), scale: 1, color: ink)
         }
 
-        text(String(format: "%05d", score % 100_000), at: CGPoint(x: w - 40, y: h - 10), size: 8, color: color(0x8A8A8A), mono: true)
+        text(String(format: "%05d", score % 100_000), at: CGPoint(x: w - 40 - 30 * (1 + sin(time / 150)), y: h - 10), size: 8,
+             color: color(0x5A5A5A), mono: true)
     }
 }
 
@@ -1824,6 +1828,8 @@ final class WeatherScene: WallpaperScene {
     private var nextStrike: CGFloat = 2
 
     private var bodyX: CGFloat = 0
+    /// Posisi matahari/bulan yang tampil: titik pilihan (bodyX) ditambah geseran pelan supaya tidak membekas di OLED.
+    private var bodyCenterX: CGFloat { bodyX + 50 * sin(time / 200) }
     private var touchX: CGFloat?
     private var lastTouchX: CGFloat = 0
     private var holdingBody = false
@@ -1911,7 +1917,7 @@ final class WeatherScene: WallpaperScene {
     override func touchBegan(at x: CGFloat) {
         touchX = x
         lastTouchX = x
-        holdingBody = showsBody && abs(x - bodyX) < 30
+        holdingBody = showsBody && abs(x - bodyCenterX) < 30
         if condition == .thunder { strike(at: x) }
     }
 
@@ -1919,7 +1925,7 @@ final class WeatherScene: WallpaperScene {
         let dx = x - lastTouchX
         lastTouchX = x
         touchX = x
-        if holdingBody { bodyX = max(12, min(w - 160, x)) }
+        if holdingBody { bodyX = max(12, min(w - 160, x)) - (bodyCenterX - bodyX) }
         // Awan di dekat jari ikut terdorong.
         for i in clouds.indices where abs(clouds[i].x - x) < 45 { clouds[i].x += dx * 0.8 }
         if condition == .fog { fogHoles.append((x, 1)) }
@@ -2049,7 +2055,7 @@ final class WeatherScene: WallpaperScene {
     }
 
     private func drawBody(_ ctx: CGContext, faded: Bool) {
-        let body = CGPoint(x: bodyX, y: 17)
+        let body = CGPoint(x: bodyCenterX, y: 17)
         let strength: CGFloat = faded ? 0.35 : 1
         let held: CGFloat = holdingBody ? 1 : 0
         if isDay {
@@ -2110,11 +2116,12 @@ final class WeatherScene: WallpaperScene {
 
     /// Suhu, kondisi, dan nama kota di kanan; bergeser pelan supaya tidak membekas di layar OLED.
     private func drawInfo(_ ctx: CGContext) {
-        let right = w - 14 - 10 * (1 + sin(time / 40))
-        let secondary = NSColor(white: 1, alpha: 0.6)
+        let right = w - 14 - 70 * (1 + sin(time / 180))
+        let primary = NSColor(white: 1, alpha: 0.85)
+        let secondary = NSColor(white: 1, alpha: 0.55)
         // Bayangan lembut di belakang tulisan supaya tetap terbaca di atas awan.
         if let shade = CGGradient(colorsSpace: sRGB, colors: [color(0x000000, 0), color(0x000000, 0.6)] as CFArray, locations: nil) {
-            ctx.drawLinearGradient(shade, start: CGPoint(x: w - 190, y: 0), end: CGPoint(x: w - 70, y: 0), options: .drawsAfterEndLocation)
+            ctx.drawLinearGradient(shade, start: CGPoint(x: right - 176, y: 0), end: CGPoint(x: right - 56, y: 0), options: .drawsAfterEndLocation)
         }
         guard let weather else {
             let message = WeatherService.shared.status as NSString
@@ -2127,7 +2134,7 @@ final class WeatherScene: WallpaperScene {
         let bigFont = NSFont.systemFont(ofSize: 17, weight: .semibold)
         let bigSize = temperature.size(withAttributes: [.font: bigFont])
         temperature.draw(at: CGPoint(x: right - bigSize.width, y: (h - bigSize.height) / 2),
-                         withAttributes: [.font: bigFont, .foregroundColor: NSColor.white])
+                         withAttributes: [.font: bigFont, .foregroundColor: primary])
 
         let smallFont = NSFont.systemFont(ofSize: 9, weight: .medium)
         let lines = [weather.condition.label, weather.place].compactMap { $0 } as [NSString]
@@ -2136,7 +2143,7 @@ final class WeatherScene: WallpaperScene {
         for (i, line) in lines.enumerated() {
             let size = line.size(withAttributes: [.font: smallFont])
             line.draw(at: CGPoint(x: right - bigSize.width - 8 - size.width, y: y),
-                      withAttributes: [.font: smallFont, .foregroundColor: i == 0 ? NSColor.white : secondary])
+                      withAttributes: [.font: smallFont, .foregroundColor: i == 0 ? primary : secondary])
             y -= lineHeight
         }
     }
@@ -2201,14 +2208,35 @@ enum WallpaperRenderer {
 // MARK: - Tampilan dan pengatur
 
 /// View di Touch Bar yang menjalankan satu adegan pada 30 fps, hanya selama tampil.
+///
+/// Penjaga OLED (Touch Bar memakai layar OLED yang bisa burn-in kalau ada piksel terang yang diam lama):
+/// seluruh gambar digeser beberapa piksel secara berkala, kecerahan maksimumnya dibatasi, dan setelah lama
+/// tampil tanpa disentuh, animasinya diredupkan dan diperlambat ("tenang").
 @MainActor
 final class WallpaperView: NSView {
     var scene: WallpaperScene? {
         didSet { needsDisplay = true }
     }
     var onTouch: (() -> Void)?
+    /// Mode tenang: lebih redup, 15 fps, dan bergerak setengah kecepatan. Kembali normal saat disentuh.
+    var isCalm = false {
+        didSet {
+            guard isCalm != oldValue, timer != nil else { return }
+            stop()
+            start()
+        }
+    }
     private var timer: Timer?
     private var lastFrame: TimeInterval?
+
+    /// Kecerahan maksimum normal dan saat tenang (1 = putih penuh).
+    private let brightness: CGFloat = 0.8
+    private let calmBrightness: CGFloat = 0.4
+    private var dim: CGFloat = 0.8
+    /// Geseran seluruh gambar (pixel shift): menuju titik acak baru setiap 90 detik, perlahan.
+    private var shift = CGPoint.zero
+    private var shiftTarget = CGPoint.zero
+    private var shiftClock: CGFloat = 0
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -2223,7 +2251,7 @@ final class WallpaperView: NSView {
     func start() {
         guard timer == nil else { return }
         lastFrame = nil
-        let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
+        let timer = Timer(timeInterval: isCalm ? 1.0 / 15 : 1.0 / 30, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -2237,10 +2265,19 @@ final class WallpaperView: NSView {
 
     private func tick() {
         let now = ProcessInfo.processInfo.systemUptime
-        let dt = min(0.1, now - (lastFrame ?? now))
+        let dt = CGFloat(min(0.1, now - (lastFrame ?? now)))
         lastFrame = now
         scene?.resize(bounds.size)
-        scene?.step(CGFloat(dt))
+        scene?.step(isCalm ? dt * 0.5 : dt)
+
+        shiftClock -= dt
+        if shiftClock <= 0 {
+            shiftClock = 90
+            shiftTarget = CGPoint(x: CGFloat(Int.random(in: -3...3)), y: CGFloat(Int.random(in: -1...1)))
+        }
+        shift.x += (shiftTarget.x - shift.x) * min(1, dt * 0.5)
+        shift.y += (shiftTarget.y - shift.y) * min(1, dt * 0.5)
+        dim += ((isCalm ? calmBrightness : brightness) - dim) * min(1, dt * 0.2)
         needsDisplay = true
     }
 
@@ -2252,8 +2289,12 @@ final class WallpaperView: NSView {
         scene.resize(bounds.size)
         ctx.saveGState()
         ctx.clip(to: bounds)
+        ctx.translateBy(x: shift.x, y: shift.y)
         scene.draw(ctx)
         ctx.restoreGState()
+        // Lapisan hitam transparan meredupkan semua warna dengan rata, termasuk putih penuh.
+        ctx.setFillColor(CGColor(gray: 0, alpha: 1 - dim))
+        ctx.fill(bounds)
     }
 
     // Sentuhan bisa datang sebagai NSTouch maupun sebagai event mouse, jadi keduanya masuk ke satu gerakan yang sama.
@@ -2269,6 +2310,7 @@ final class WallpaperView: NSView {
     private func began(_ x: CGFloat) {
         guard gesture == nil else { return }
         noteTouch()
+        isCalm = false
         guard scene?.isInteractive == true else { return onTouch?() ?? () }
         gesture = (x, ProcessInfo.processInfo.systemUptime, false)
     }
@@ -2295,20 +2337,26 @@ final class WallpaperView: NSView {
         }
     }
 
+    /// Posisi jari dalam koordinat adegan (dikurangi geseran pixel shift).
     private func touchX(_ event: NSEvent) -> CGFloat? {
-        event.touches(matching: .any, in: self).first?.location(in: self).x
+        event.touches(matching: .any, in: self).first.map { $0.location(in: self).x - shift.x }
+    }
+
+    private func mouseX(_ event: NSEvent) -> CGFloat {
+        convert(event.locationInWindow, from: nil).x - shift.x
     }
 
     override func touchesBegan(with event: NSEvent) { touchX(event).map(began) }
     override func touchesMoved(with event: NSEvent) { touchX(event).map(moved) }
     override func touchesEnded(with event: NSEvent) { ended() }
     override func touchesCancelled(with event: NSEvent) { ended() }
-    override func mouseDown(with event: NSEvent) { began(convert(event.locationInWindow, from: nil).x) }
-    override func mouseDragged(with event: NSEvent) { moved(convert(event.locationInWindow, from: nil).x) }
+    override func mouseDown(with event: NSEvent) { began(mouseX(event)) }
+    override func mouseDragged(with event: NSEvent) { moved(mouseX(event)) }
     override func mouseUp(with event: NSEvent) { ended() }
 }
 
-/// Menampilkan wallpaper di Touch Bar saat Mac lama tidak disentuh, dan menutupnya begitu ada sentuhan.
+/// Menampilkan wallpaper di Touch Bar saat Mac lama tidak dipakai, dan menutupnya saat Touch Bar disentuh
+/// (atau juga saat mengetik/klik, kalau dipilih di menu).
 @MainActor
 final class IdleWallpaper: NSObject, NSTouchBarDelegate {
     static let trayID = NSTouchBarItem.Identifier("local.touchbarlyrics.wallpaper.tray")
@@ -2338,6 +2386,19 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
             return value > 0 ? value : 60
         }
         set { UserDefaults.standard.set(newValue, forKey: "wallpaperDelay") }
+    }
+
+    /// true = juga ditutup saat mengetik, klik, atau scroll; false (bawaan) = hanya saat Touch Bar disentuh.
+    var closesOnInput: Bool {
+        get { UserDefaults.standard.bool(forKey: "wallpaperClosesOnInput") }
+        set { UserDefaults.standard.set(newValue, forKey: "wallpaperClosesOnInput") }
+    }
+
+    /// Setelah selama ini tampil tanpa disentuh, wallpaper masuk mode tenang (lebih redup dan lambat).
+    /// Untuk uji: `defaults write local.touchbarlyrics wallpaperCalmAfter -float 10`.
+    private var calmAfter: TimeInterval {
+        let value = UserDefaults.standard.double(forKey: "wallpaperCalmAfter")
+        return value > 0 ? value : 60 * 60
     }
 
     private let bar = NSTouchBar()
@@ -2402,7 +2463,9 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
             // Input terakhir yang terjadi selama jari menggeser wallpaper bukan tanda Mac sedang dipakai.
             let inputAt = now - idle
             let fromTouch = (view.touchSpan.lowerBound - 0.3)...(view.touchSpan.upperBound + 0.3) ~= inputAt
-            if (inputAt > shownAt + 0.5 && !fromTouch) || (!previewing && !canShow()) { hide() }
+            let typedOrClicked = closesOnInput && inputAt > shownAt + 0.5 && !fromTouch
+            if typedOrClicked || (!previewing && !canShow()) { return hide() }
+            view.isCalm = now - max(shownAt, view.touchSpan.upperBound) > calmAfter
             return
         }
         // Setelah ditutup dengan sentuhan, tunggu satu jeda penuh lagi (sentuhan Touch Bar tidak mengubah `idle`).
@@ -2418,6 +2481,7 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
         shownAt = ProcessInfo.processInfo.systemUptime
         SystemTouchBar.present(bar, trayItem: Self.trayID)
         isShown = true
+        view.isCalm = false
         view.start()
     }
 

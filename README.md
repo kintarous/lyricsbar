@@ -64,7 +64,9 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 
 ## Wallpaper saat idle
 
-Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilkan animasi pilihanmu. **Ketuk** untuk kembali ke tombol bawaan. Pilih tema dan lama menunggunya di menu ♪ › **Wallpaper saat idle**; memilih tema langsung menampilkannya di Touch Bar.
+Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilkan animasi pilihanmu. Wallpaper tetap tampil walau kamu mengetik atau mengklik; **ketuk** Touch Bar untuk kembali ke tombol bawaan (atau pilih menu ♪ › Wallpaper saat idle › Tutup saat › *Disentuh, mengetik, atau klik*). Pilih tema dan lama menunggunya di menu ♪ › **Wallpaper saat idle**; memilih tema langsung menampilkannya di Touch Bar.
+
+**Aman untuk layar OLED Touch Bar:** seluruh gambar bergeser beberapa piksel secara berkala, kecerahan maksimumnya dibatasi, elemen yang diam (suhu, matahari, bulan, garis tanah) dibuat redup dan bergeser pelan, dan setelah 1 jam tampil tanpa disentuh, animasinya meredup dan melambat sampai disentuh lagi.
 
 <div align="center">
 
@@ -189,7 +191,7 @@ Semua pengaturan ada di ikon **♪** di menu bar.
 | Buka folder lirik sendiri… | Tempat menaruh file `.lrc` buatanmu |
 | Animasi lirik | Geser ke atas, pudar, atau tanpa animasi |
 | Perataan lirik | Rata kiri, tengah, atau kanan |
-| Wallpaper saat idle | Pilih tema (langsung dipratinjau), teks sendiri, lokasi cuaca, dan lama menunggu |
+| Wallpaper saat idle | Pilih tema (langsung dipratinjau), teks sendiri, lokasi cuaca, lama menunggu, dan kapan wallpaper ditutup (disentuh saja, atau juga saat mengetik/klik) |
 | Bahasa | Ikuti sistem, Bahasa Indonesia, atau English |
 | Lirik juga di menu bar | Menampilkan baris lirik di menu bar |
 | Buka saat login | Menjalankan Lyricsbar otomatis setiap login |

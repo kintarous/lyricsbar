@@ -64,7 +64,9 @@ For Spotify and Apple Music on the MacBook Pro.
 
 ## Idle wallpaper
 
-When nothing is playing and your Mac has been idle for a while, the Touch Bar shows the animation you picked. **Tap** to get the standard buttons back. Choose a theme and how long to wait in ♪ › **Idle wallpaper**; picking a theme shows it on the Touch Bar right away.
+When nothing is playing and your Mac has been idle for a while, the Touch Bar shows the animation you picked. It stays up while you type or click; **tap** the Touch Bar to get the standard buttons back (or choose ♪ › Idle wallpaper › Close when › *Touched, typing, or clicking*). Choose a theme and how long to wait in ♪ › **Idle wallpaper**; picking a theme shows it on the Touch Bar right away.
+
+**Safe for the Touch Bar's OLED screen:** the whole picture shifts by a few pixels from time to time, peak brightness is capped, elements that stay put (temperature, sun, moon, ground line) are dimmed and drift slowly, and after an hour on screen without a touch, the animation dims and slows down until you touch it again.
 
 <div align="center">
 
@@ -189,7 +191,7 @@ Every setting lives in the **♪** icon in the menu bar.
 | Open your lyrics folder… | Where you put your own `.lrc` files |
 | Lyrics animation | Slide up, fade, or no animation |
 | Lyrics alignment | Left, center, or right |
-| Idle wallpaper | Pick a theme (it previews right away), your own text, the weather location, and how long to wait |
+| Idle wallpaper | Pick a theme (it previews right away), your own text, the weather location, how long to wait, and when the wallpaper closes (touch only, or also typing/clicking) |
 | Language | Same as system, Bahasa Indonesia, or English |
 | Also show lyrics in menu bar | Shows the current lyric line in the menu bar |
 | Open at login | Starts Lyricsbar automatically when you log in |

@@ -1725,7 +1725,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(L("Ubah teks (\(WallpaperTheme.customText))…", "Edit text (\(WallpaperTheme.customText))…"), #selector(editWallpaperText), nil, on: false)
         add(L("Lokasi cuaca (\(WeatherService.shared.manualCity?.name ?? "otomatis"))…", "Weather location (\(WeatherService.shared.manualCity?.name ?? "automatic"))…"), #selector(editWeatherCity), nil, on: false)
         submenu.addItem(.separator())
-        let header = NSMenuItem(title: L("Muncul setelah tidak disentuh", "Show after being idle for"), action: nil, keyEquivalent: "")
+        let header = NSMenuItem(title: L("Muncul setelah Mac tidak dipakai", "Show after the Mac is idle for"), action: nil, keyEquivalent: "")
         header.isEnabled = false
         submenu.addItem(header)
         for seconds in IdleWallpaper.delays {
@@ -1733,6 +1733,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 : L("\(Int(seconds / 60)) menit", seconds == 60 ? "1 minute" : "\(Int(seconds / 60)) minutes")
             add(title, #selector(chooseWallpaperDelay(_:)), seconds, on: wallpaper.delay == seconds)
         }
+        submenu.addItem(.separator())
+        let closeHeader = NSMenuItem(title: L("Tutup saat", "Close when"), action: nil, keyEquivalent: "")
+        closeHeader.isEnabled = false
+        submenu.addItem(closeHeader)
+        add(L("Touch Bar disentuh saja", "The Touch Bar is touched"), #selector(chooseWallpaperClose(_:)), false, on: !wallpaper.closesOnInput)
+        add(L("Disentuh, mengetik, atau klik", "Touched, typing, or clicking"), #selector(chooseWallpaperClose(_:)), true,
+            on: wallpaper.closesOnInput)
         submenu.addItem(.separator())
         let previewItem = NSMenuItem(title: L("Pratinjau sekarang", "Preview now"), action: #selector(previewWallpaper), keyEquivalent: "")
         previewItem.target = self
@@ -1799,6 +1806,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc private func chooseWallpaperDelay(_ sender: NSMenuItem) {
         if let seconds = sender.representedObject as? TimeInterval { wallpaper.delay = seconds }
+    }
+
+    @objc private func chooseWallpaperClose(_ sender: NSMenuItem) {
+        if let onInput = sender.representedObject as? Bool { wallpaper.closesOnInput = onInput }
     }
 
     /// Ditampilkan sampai Touch Bar disentuh; kalau lagu sedang diputar, lirik kembali sesudahnya.

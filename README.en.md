@@ -282,6 +282,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Version | Changes |
 |---|---|
+| [**1.5**](https://github.com/kintarous/lyricsbar/releases/tag/v1.5) | Much easier on the battery: the menu bar lyrics no longer keep the CPU busy (about 55% down to about 1% while paused), the player is checked less often when nothing is playing, and the wallpapers are up to 2–3 times lighter with the same look |
 | [**1.4**](https://github.com/kintarous/lyricsbar/releases/tag/v1.4) | Works on Macs without a Touch Bar: the lyrics show up in the menu bar automatically, the toggle sits in the main menu, and Touch Bar-only features are hidden. A lyrics width option for the menu bar (narrow, medium, wide) for notched MacBooks |
 | [**1.3**](https://github.com/kintarous/lyricsbar/releases/tag/v1.3) | The wallpaper stays up while you type and only closes when you touch the Touch Bar (configurable). OLED protection: pixel shift, capped brightness, dimmed static elements, and a calm mode with a choice of timings. Chrome-style dino runner: runs into the middle, jumps small and large cacti, and dodges birds at three heights. New Settings menu |
 | [**1.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.2) | Idle Touch Bar wallpaper with 16 themes, including your own text in black-and-white dot-matrix letters and today's weather that you can play with using your finger. English language (follows your macOS language or region, or pick it in the ♪ menu) and an English README |

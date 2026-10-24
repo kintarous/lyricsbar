@@ -27,6 +27,21 @@ private func wrap(_ x: CGFloat, _ length: CGFloat) -> CGFloat {
 
 private let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
 
+/// Gradien cahaya per warna; warnanya dibulatkan supaya cahaya yang kecerahannya berubah halus (berkedip) tetap
+/// memakai beberapa gradien saja.
+private var glowGradients: [UInt64: CGGradient] = [:]
+
+private func glowGradient(_ c: CGColor) -> CGGradient? {
+    guard let rgba = c.converted(to: sRGB, intent: .defaultIntent, options: nil)?.components, rgba.count == 4 else { return nil }
+    let q = rgba.map { UInt64(max(0, min(1, $0)) * 63) }
+    let key = q[0] << 18 | q[1] << 12 | q[2] << 6 | q[3]
+    if let cached = glowGradients[key] { return cached }
+    let start = CGColor(srgbRed: CGFloat(q[0]) / 63, green: CGFloat(q[1]) / 63, blue: CGFloat(q[2]) / 63, alpha: CGFloat(q[3]) / 63)
+    guard let gradient = CGGradient(colorsSpace: sRGB, colors: [start, start.copy(alpha: 0)!] as CFArray, locations: nil) else { return nil }
+    glowGradients[key] = gradient
+    return gradient
+}
+
 private extension CGContext {
     func fill(_ c: CGColor, _ rect: CGRect) {
         setFillColor(c)
@@ -48,8 +63,10 @@ private extension CGContext {
     }
 
     /// Cahaya bulat yang memudar ke tepi.
+    /// Cahaya bulat yang memudar ke tepi. Gradiennya dibuat sekali per warna lalu dipakai ulang: membuatnya setiap
+    /// frame (misalnya 45 kunang-kunang × 20 fps) memakan banyak CPU.
     func glow(_ c: CGColor, _ center: CGPoint, _ radius: CGFloat) {
-        guard radius > 0, let gradient = CGGradient(colorsSpace: sRGB, colors: [c, c.copy(alpha: 0)!] as CFArray, locations: nil) else { return }
+        guard radius > 0, let gradient = glowGradient(c) else { return }
         drawRadialGradient(gradient, startCenter: center, startRadius: 0, endCenter: center, endRadius: radius, options: [])
     }
 
@@ -125,6 +142,10 @@ class WallpaperScene {
     func update(_ dt: CGFloat) {}
     func draw(_ ctx: CGContext) {}
 
+    /// Frame per detik yang cukup untuk adegan ini. Adegan yang bergerak pelan tidak perlu 30 fps, dan setiap frame
+    /// digambar ulang oleh CPU, jadi frame rate rendah langsung menghemat baterai.
+    var frameRate: Double { 30 }
+
     /// Adegan interaktif bisa digeser jari; ketukan singkat tetap menutup wallpaper.
     var isInteractive: Bool { false }
     func touchBegan(at x: CGFloat) {}
@@ -182,6 +203,8 @@ enum WallpaperTheme: String, CaseIterable {
 // MARK: Ikan berenang
 
 final class FishScene: WallpaperScene {
+    override var frameRate: Double { 20 }
+
     private struct Fish {
         var x, y, targetY, speed, dir, size, phase: CGFloat
         var body, fin: CGColor
@@ -298,6 +321,8 @@ final class FishScene: WallpaperScene {
 // MARK: Kereta lewat
 
 final class TrainScene: WallpaperScene {
+    override var frameRate: Double { 24 }
+
     private var scroll: CGFloat = 0
     /// Posisi ujung depan lokomotif; nil = sedang menunggu kereta berikutnya.
     private var trainX: CGFloat?
@@ -422,6 +447,8 @@ final class TrainScene: WallpaperScene {
 // MARK: Hujan dan kilat
 
 final class RainScene: WallpaperScene {
+    override var frameRate: Double { 30 }
+
     private struct Drop { var x, y, speed, length: CGFloat }
 
     private var drops: [Drop] = []
@@ -518,6 +545,8 @@ final class RainScene: WallpaperScene {
 // MARK: Awan dan burung
 
 final class SkyScene: WallpaperScene {
+    override var frameRate: Double { 20 }
+
     private struct Cloud {
         var x, y, speed, scale: CGFloat
         var puffs: [(dx: CGFloat, dy: CGFloat, r: CGFloat)]
@@ -590,6 +619,8 @@ final class SkyScene: WallpaperScene {
 // MARK: Kota malam
 
 final class CityScene: WallpaperScene {
+    override var frameRate: Double { 15 }
+
     private struct Building {
         var x, width, height: CGFloat
         var cols, rows: Int
@@ -687,14 +718,19 @@ final class CityScene: WallpaperScene {
 // MARK: Partikel mengalir
 
 final class FlowScene: WallpaperScene {
+    override var frameRate: Double { 24 }
+
     private struct Particle { var x, y, life: CGFloat }
 
     private var particles: [Particle] = []
-    /// Kanvas jejak: setiap frame sedikit digelapkan, jadi gerakan partikel meninggalkan ekor.
+    /// Kanvas jejak: setiap frame sedikit digelapkan, jadi gerakan partikel meninggalkan ekor. Tetap 2x seperti Touch Bar;
+    /// versi 1x memang lebih hemat (~14% vs ~20% CPU) tapi jejaknya jadi kasar dan bergaris.
     private var trail: CGContext?
+    /// Warna pelangi yang disiapkan sekali, supaya tidak membuat objek warna baru untuk setiap partikel setiap frame.
+    private static let palette: [CGColor] = (0..<64).map { NSColor(hue: CGFloat($0) / 64, saturation: 0.7, brightness: 1, alpha: 0.75).cgColor }
 
     override func layout() {
-        particles = (0..<Int(w / 2.5)).map { _ in Particle(x: rnd(0, w), y: rnd(0, h), life: rnd(2, 8)) }
+        particles = (0..<Int(w / 3.2)).map { _ in Particle(x: rnd(0, w), y: rnd(0, h), life: rnd(2, 8)) }
         trail = CGContext(data: nil, width: Int(w * 2), height: Int(h * 2), bitsPerComponent: 8, bytesPerRow: 0,
                           space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         trail?.scaleBy(x: 2, y: 2)
@@ -707,7 +743,8 @@ final class FlowScene: WallpaperScene {
 
     override func update(_ dt: CGFloat) {
         guard let trail else { return }
-        trail.fill(color(0x000000, 0.08), bounds)
+        // Pudar 8% per 1/30 detik, berapa pun frame rate-nya, supaya panjang ekor tetap sama.
+        trail.fill(color(0x000000, 1 - pow(0.92, dt * 30)), bounds)
         trail.setLineWidth(0.9)
         trail.setLineCap(.round)
         for i in particles.indices {
@@ -715,7 +752,7 @@ final class FlowScene: WallpaperScene {
             let a = angle(p.x, p.y)
             let nx = p.x + cos(a) * 32 * dt, ny = p.y + sin(a) * 14 * dt
             let hue = wrap(p.x / w * 0.45 + time * 0.02, 1)
-            trail.setStrokeColor(NSColor(hue: hue, saturation: 0.7, brightness: 1, alpha: 0.75).cgColor)
+            trail.setStrokeColor(Self.palette[Int(hue * 64) % 64])
             trail.beginPath()
             trail.move(to: CGPoint(x: p.x, y: p.y))
             trail.addLine(to: CGPoint(x: nx, y: ny))
@@ -731,69 +768,97 @@ final class FlowScene: WallpaperScene {
     }
 
     override func draw(_ ctx: CGContext) {
-        if let image = trail?.makeImage() { ctx.draw(image, in: bounds) }
+        guard let image = trail?.makeImage() else { return }
+        ctx.saveGState()
+        ctx.interpolationQuality = .medium
+        ctx.draw(image, in: bounds)
+        ctx.restoreGState()
     }
 }
 
 // MARK: Aurora
 
 final class AuroraScene: WallpaperScene {
+    override var frameRate: Double { 15 }
+
     private var stars: [CGPoint] = []
     private let ribbons: [(base: CGFloat, amp: CGFloat, freq: CGFloat, speed: CGFloat, color: UInt32)] = [
         (18, 5, 0.006, 0.25, 0x3DFFB0), (14, 4, 0.009, -0.18, 0x37E0FF),
         (20, 3, 0.012, 0.32, 0x9B6BFF), (12, 3, 0.004, 0.15, 0x5CFF7A),
     ]
+    /// Langit dan aurora digambar di kanvas beresolusi rendah (1 piksel = 2 pt) lalu diperbesar: cahaya aurora memang
+    /// lembut, jadi tidak terlihat bedanya, tapi piksel yang dihitung tinggal 1/16 dari resolusi Touch Bar.
+    private let skyScale: CGFloat = 0.5
+    private var sky: CGContext?
+    /// Siluet gunung tidak bergerak, jadi cukup digambar sekali.
+    private var mountains: CGImage?
 
     override func layout() {
         stars = (0..<90).map { _ in CGPoint(x: rnd(0, w), y: rnd(4, h - 1)) }
+        sky = CGContext(data: nil, width: Int(ceil(w * skyScale)), height: Int(ceil(h * skyScale)), bitsPerComponent: 8, bytesPerRow: 0,
+                        space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+        sky?.scaleBy(x: skyScale, y: skyScale)
+        if let ctx = CGContext(data: nil, width: Int(w * 2), height: Int(h * 2), bitsPerComponent: 8, bytesPerRow: 0,
+                               space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+            ctx.scaleBy(x: 2, y: 2)
+            ctx.fillTerrain(color(0x010307), width: w, step: 8) { x in
+                3 + 3 * sin(x * 0.015) + 2 * sin(x * 0.043 + 1) + (hash(Int(x / 8)) > 0.8 ? 2 : 0)
+            }
+            mountains = ctx.makeImage()
+        }
     }
 
     override func draw(_ ctx: CGContext) {
-        ctx.verticalGradient([color(0x020814), color(0x06121C)], bounds)
+        if let sky {
+            sky.setBlendMode(.normal)
+            sky.verticalGradient([color(0x020814), color(0x06121C)], bounds)
+            sky.setBlendMode(.screen)
+            for (i, r) in ribbons.enumerated() {
+                let phase = CGFloat(i) * 2
+                let center = { (x: CGFloat) -> CGFloat in
+                    r.base + r.amp * sin(x * r.freq + self.time * r.speed + phase)
+                        + r.amp * 0.5 * sin(x * r.freq * 2.3 - self.time * r.speed * 1.4)
+                }
+                let thickness = { (x: CGFloat) -> CGFloat in
+                    5 + 4 * (0.5 + 0.5 * sin(x * 0.01 + self.time * 0.5 + phase))
+                }
+                // Beberapa lapisan dengan ketebalan berbeda: tepinya terlihat lembut.
+                for (spread, alpha) in [(1.6, 0.06), (1.0, 0.10), (0.5, 0.16)] as [(CGFloat, CGFloat)] {
+                    sky.setFillColor(color(r.color, alpha))
+                    sky.beginPath()
+                    var x: CGFloat = 0
+                    sky.move(to: CGPoint(x: 0, y: center(0) + thickness(0) * spread))
+                    while x <= w + 8 {
+                        sky.addLine(to: CGPoint(x: x, y: center(x) + thickness(x) * spread))
+                        x += 8
+                    }
+                    while x >= -8 {
+                        sky.addLine(to: CGPoint(x: x, y: center(x) - thickness(x) * spread * 0.6))
+                        x -= 8
+                    }
+                    sky.closePath()
+                    sky.fillPath()
+                }
+            }
+            if let image = sky.makeImage() {
+                ctx.saveGState()
+                ctx.interpolationQuality = .medium
+                ctx.draw(image, in: bounds)
+                ctx.restoreGState()
+            }
+        }
         for (i, star) in stars.enumerated() {
             ctx.fill(color(0xFFFFFF, 0.2 + 0.2 * sin(time * 1.5 + CGFloat(i) * 1.7)), CGRect(x: star.x, y: star.y, width: 0.7, height: 0.7))
         }
-
-        ctx.saveGState()
-        ctx.setBlendMode(.screen)
-        for (i, r) in ribbons.enumerated() {
-            let phase = CGFloat(i) * 2
-            let center = { (x: CGFloat) -> CGFloat in
-                r.base + r.amp * sin(x * r.freq + self.time * r.speed + phase)
-                    + r.amp * 0.5 * sin(x * r.freq * 2.3 - self.time * r.speed * 1.4)
-            }
-            let thickness = { (x: CGFloat) -> CGFloat in
-                5 + 4 * (0.5 + 0.5 * sin(x * 0.01 + self.time * 0.5 + phase))
-            }
-            // Beberapa lapisan dengan ketebalan berbeda: tepinya terlihat lembut.
-            for (spread, alpha) in [(1.6, 0.06), (1.0, 0.10), (0.5, 0.16)] as [(CGFloat, CGFloat)] {
-                ctx.setFillColor(color(r.color, alpha))
-                ctx.beginPath()
-                var x: CGFloat = 0
-                ctx.move(to: CGPoint(x: 0, y: center(0) + thickness(0) * spread))
-                while x <= w + 8 {
-                    ctx.addLine(to: CGPoint(x: x, y: center(x) + thickness(x) * spread))
-                    x += 8
-                }
-                while x >= -8 {
-                    ctx.addLine(to: CGPoint(x: x, y: center(x) - thickness(x) * spread * 0.6))
-                    x -= 8
-                }
-                ctx.closePath()
-                ctx.fillPath()
-            }
-        }
-        ctx.restoreGState()
-
-        ctx.fillTerrain(color(0x010307), width: w, step: 8) { x in
-            3 + 3 * sin(x * 0.015) + 2 * sin(x * 0.043 + 1) + (hash(Int(x / 8)) > 0.8 ? 2 : 0)
-        }
+        if let mountains { ctx.draw(mountains, in: bounds) }
     }
 }
 
 // MARK: Kunang-kunang
 
 final class FirefliesScene: WallpaperScene {
+    override var frameRate: Double { 20 }
+
     private struct Fly { var x, y, vx, vy, phase, blink: CGFloat }
 
     private var flies: [Fly] = []
@@ -826,6 +891,20 @@ final class FirefliesScene: WallpaperScene {
             if b > 0.02 { ctx.glow(color(0xD4FF6A, 0.55 * b), CGPoint(x: f.x, y: f.y), 2 + 5 * b) }
             ctx.fillEllipse(color(0xEFFFA0, 0.25 + 0.75 * b), CGPoint(x: f.x, y: f.y), 0.7, 0.7)
         }
+        if grassImage == nil || time - grassDrawnAt > 0.2 { redrawGrass() }
+        if let grassImage { ctx.draw(grassImage, in: CGRect(x: 0, y: 0, width: w, height: 10)) }
+    }
+
+    /// Ratusan helai rumput yang dihaluskan tepinya mahal digambar; goyangannya pelan, jadi cukup digambar ulang
+    /// 5 kali per detik ke gambar tersendiri yang ditempel di setiap frame.
+    private var grassImage: CGImage?
+    private var grassDrawnAt: CGFloat = 0
+
+    private func redrawGrass() {
+        grassDrawnAt = time
+        guard let ctx = CGContext(data: nil, width: Int(w * 2), height: 20, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+        ctx.scaleBy(x: 2, y: 2)
         ctx.setStrokeColor(color(0x0F2A16))
         ctx.setLineWidth(0.9)
         ctx.beginPath()
@@ -835,12 +914,15 @@ final class FirefliesScene: WallpaperScene {
             ctx.addLine(to: CGPoint(x: g.x + g.lean + sway, y: g.height))
         }
         ctx.strokePath()
+        grassImage = ctx.makeImage()
     }
 }
 
 // MARK: Matrix rain
 
 final class MatrixScene: WallpaperScene {
+    override var frameRate: Double { 15 }
+
     private struct Column { var head, speed, trail: CGFloat; var glyphs: [Int] }
 
     private static let charset = Array("ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789Z:=+<>")
@@ -890,6 +972,8 @@ final class MatrixScene: WallpaperScene {
 
     override func draw(_ ctx: CGContext) {
         ctx.fill(color(0x000300), bounds)
+        // Gambar huruf sudah seukuran piksel tujuannya, jadi tidak perlu dihaluskan saat ditempel.
+        ctx.interpolationQuality = .none
         let top = h - (h - CGFloat(rows) * cell) / 2
         for (c, column) in columns.enumerated() {
             for r in 0..<rows {
@@ -908,6 +992,8 @@ final class MatrixScene: WallpaperScene {
 // MARK: Game of Life
 
 final class LifeScene: WallpaperScene {
+    override var frameRate: Double { 10 }
+
     private let cell: CGFloat = 3
     private var cols = 0, rows = 0
     private var alive: [Bool] = []
@@ -986,6 +1072,8 @@ final class LifeScene: WallpaperScene {
 // MARK: Kucing jalan-jalan
 
 final class CatScene: WallpaperScene {
+    override var frameRate: Double { 20 }
+
     private enum State { case walk, chase, sit, sleep }
 
     private var x: CGFloat = 100
@@ -1159,6 +1247,8 @@ final class CatScene: WallpaperScene {
 // MARK: Semut berbaris
 
 final class AntsScene: WallpaperScene {
+    override var frameRate: Double { 15 }
+
     private struct Ant {
         var x, speed, phase: CGFloat
         var lane: Int
@@ -1256,6 +1346,8 @@ final class AntsScene: WallpaperScene {
 // MARK: Ular (main sendiri)
 
 final class SnakeScene: WallpaperScene {
+    override var frameRate: Double { 15 }
+
     private struct Cell: Hashable { var x, y: Int }
 
     private let size5: CGFloat = 5
@@ -1394,6 +1486,8 @@ final class SnakeScene: WallpaperScene {
 /// burung di tiga ketinggian: rendah dilompati, tengah ditunduki, tinggi lewat di atas kepala.
 /// Posisi "tengah" bergeser pelan supaya dino tidak diam di piksel yang sama (layar OLED).
 final class DinoScene: WallpaperScene {
+    override var frameRate: Double { 30 }
+
     private static let body = [
         ".........########",
         "........##.######",
@@ -1626,6 +1720,8 @@ extension WallpaperTheme {
 /// Muncul (pindai, berkelip, atau jatuh), diam sambil disapu kilau, lalu hilang dan muncul lagi di posisi
 /// lain supaya layar OLED tidak burn-in. Teks yang terlalu panjang berjalan seperti papan running text.
 final class TextScene: WallpaperScene {
+    override var frameRate: Double { 30 }
+
     private struct Dot {
         /// Kolom (relatif ke awal teks) dan baris (0 = paling atas).
         var col, row: Int
@@ -1897,6 +1993,8 @@ final class TextScene: WallpaperScene {
 /// Bisa dimainkan dengan menggeser jari: awan ikut terdorong, payung muncul menahan hujan, salju menyingkir,
 /// kabut tersapu, matahari/bulan bisa dipindah, dan saat badai kilat menyambar di bawah jari.
 final class WeatherScene: WallpaperScene {
+    override var frameRate: Double { 24 }
+
     private struct Cloud {
         var x, y, scale: CGFloat
         var puffs: [(dx: CGFloat, dy: CGFloat, r: CGFloat)]
@@ -2300,7 +2398,7 @@ enum WallpaperRenderer {
 
 // MARK: - Tampilan dan pengatur
 
-/// View di Touch Bar yang menjalankan satu adegan pada 30 fps, hanya selama tampil.
+/// View di Touch Bar yang menjalankan satu adegan pada frame rate adegan itu (10–30 fps), hanya selama tampil.
 ///
 /// Penjaga OLED (Touch Bar memakai layar OLED yang bisa burn-in kalau ada piksel terang yang diam lama):
 /// seluruh gambar digeser beberapa piksel secara berkala, kecerahan maksimumnya dibatasi, dan setelah lama
@@ -2308,15 +2406,16 @@ enum WallpaperRenderer {
 @MainActor
 final class WallpaperView: NSView {
     var scene: WallpaperScene? {
-        didSet { needsDisplay = true }
+        didSet {
+            needsDisplay = true
+            restartTimer()
+        }
     }
     var onTouch: (() -> Void)?
     /// Mode tenang: lebih redup, 15 fps, dan bergerak setengah kecepatan. Kembali normal saat disentuh.
     var isCalm = false {
         didSet {
-            guard isCalm != oldValue, timer != nil else { return }
-            stop()
-            start()
+            if isCalm != oldValue { restartTimer() }
         }
     }
     private var timer: Timer?
@@ -2344,7 +2443,8 @@ final class WallpaperView: NSView {
     func start() {
         guard timer == nil else { return }
         lastFrame = nil
-        let timer = Timer(timeInterval: isCalm ? 1.0 / 15 : 1.0 / 30, repeats: true) { [weak self] _ in
+        let rate = (scene?.frameRate ?? 30) / (isCalm ? 2 : 1)
+        let timer = Timer(timeInterval: 1 / rate, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
         }
         RunLoop.main.add(timer, forMode: .common)
@@ -2354,6 +2454,13 @@ final class WallpaperView: NSView {
     func stop() {
         timer?.invalidate()
         timer = nil
+    }
+
+    /// Frame rate berubah (adegan lain atau mode tenang): pasang ulang pengatur waktu kalau sedang berjalan.
+    private func restartTimer() {
+        guard timer != nil else { return }
+        stop()
+        start()
     }
 
     private func tick() {

@@ -282,6 +282,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Versi | Perubahan |
 |---|---|
+| [**1.5**](https://github.com/kintarous/lyricsbar/releases/tag/v1.5) | Jauh lebih hemat baterai: lirik di menu bar tidak lagi memakan CPU terus-menerus (sekitar 55% menjadi sekitar 1% saat lagu dijeda), status pemutar dibaca lebih jarang saat lagu tidak diputar, dan wallpaper hingga 2–3 kali lebih ringan dengan tampilan yang sama |
 | [**1.4**](https://github.com/kintarous/lyricsbar/releases/tag/v1.4) | Bisa dipakai di Mac tanpa Touch Bar: lirik otomatis tampil di menu bar, pilihannya ada di menu utama, dan fitur khusus Touch Bar disembunyikan. Pilihan lebar lirik di menu bar (sempit, sedang, lebar) untuk MacBook berponi |
 | [**1.3**](https://github.com/kintarous/lyricsbar/releases/tag/v1.3) | Wallpaper tetap tampil saat mengetik dan hanya tertutup saat Touch Bar disentuh (bisa diubah). Perlindungan layar OLED: pixel shift, kecerahan dibatasi, elemen diam diredupkan, dan mode tenang yang waktunya bisa dipilih. Dino runner ala Chrome: berlari ke tengah, melompati kaktus kecil dan besar, serta menghindari burung di tiga ketinggian. Menu Pengaturan baru |
 | [**1.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.2) | Wallpaper Touch Bar saat idle dengan 16 tema, termasuk teks sendiri dalam huruf dot-matrix hitam putih dan cuaca hari ini yang bisa dimainkan dengan jari. Bahasa Inggris (mengikuti bahasa atau wilayah macOS, atau pilih di menu ♪) dan README berbahasa Inggris |

@@ -79,6 +79,9 @@ When nothing is playing and your Mac has been idle for a while, the Touch Bar sh
 <img src="docs/wallpapers/dino.gif" alt="Dino runner wallpaper" width="100%">
 <sub><i>Dino runner: runs into the middle of the bar, then jumps small and large cacti. From a score of 450, birds show up: jump the low ones, duck under the middle ones, let the high ones fly by</i></sub>
 
+<img src="docs/wallpapers/cat.gif" alt="Wandering cat wallpaper" width="100%">
+<sub><i>Wandering cat: walks around, chases a butterfly, sits, or naps</i></sub>
+
 <img src="docs/wallpapers/fish.gif" alt="Swimming fish wallpaper" width="100%">
 <sub><i>Swimming fish</i></sub>
 

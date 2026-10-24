@@ -79,6 +79,9 @@ Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilk
 <img src="docs/wallpapers/dino.gif" alt="Wallpaper dino runner" width="100%">
 <sub><i>Dino runner: berlari masuk ke tengah bar, lalu melompati kaktus kecil dan besar. Setelah skor 450 muncul burung: yang rendah dilompati, yang di tengah ditunduki, yang tinggi dibiarkan lewat</i></sub>
 
+<img src="docs/wallpapers/cat.gif" alt="Wallpaper kucing jalan-jalan" width="100%">
+<sub><i>Kucing jalan-jalan: berjalan, mengejar kupu-kupu, duduk, atau tidur</i></sub>
+
 <img src="docs/wallpapers/fish.gif" alt="Wallpaper ikan berenang" width="100%">
 <sub><i>Ikan berenang</i></sub>
 

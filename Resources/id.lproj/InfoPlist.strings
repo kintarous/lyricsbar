@@ -1,0 +1,3 @@
+"NSAppleEventsUsageDescription" = "Lyricsbar perlu membaca lagu dan posisi pemutaran dari Spotify atau Music supaya liriknya sinkron.";
+"NSLocationUsageDescription" = "Lyricsbar memakai lokasi MacBook (sekitar 1 km) untuk menampilkan cuaca hari ini di wallpaper Touch Bar.";
+"NSLocationWhenInUseUsageDescription" = "Lyricsbar memakai lokasi MacBook (sekitar 1 km) untuk menampilkan cuaca hari ini di wallpaper Touch Bar.";

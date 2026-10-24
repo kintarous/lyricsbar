@@ -13,6 +13,8 @@ VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Info.pl
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp Info.plist "$APP/Contents/Info.plist"
+# Teks izin (Automation, Lokasi) dalam bahasa Inggris dan Indonesia.
+cp -R Resources/*.lproj "$APP/Contents/Resources/"
 
 # Ikon app: Resources/logo.png → AppIcon.icns
 ICONSET=build/AppIcon.iconset
@@ -27,8 +29,8 @@ iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 # Sebagian besar MacBook Pro ber-Touch Bar memakai Intel, jadi build untuk kedua arsitektur lalu digabung.
 for arch in arm64 x86_64; do
     swiftc -O -swift-version 5 -target "$arch-apple-macos13.0" \
-        -framework Cocoa -framework ServiceManagement \
-        Sources/main.swift -o "build/Lyricsbar-$arch"
+        -framework Cocoa -framework ServiceManagement -framework CoreLocation \
+        Sources/*.swift -o "build/Lyricsbar-$arch"
 done
 lipo -create build/Lyricsbar-arm64 build/Lyricsbar-x86_64 -output "$APP/Contents/MacOS/Lyricsbar"
 rm -f build/Lyricsbar-arm64 build/Lyricsbar-x86_64

@@ -196,6 +196,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Versi | Perubahan |
 |---|---|
+| [**1.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.2) | Wallpaper Touch Bar saat idle dengan 16 tema, termasuk teks sendiri dalam huruf dot-matrix hitam putih dan cuaca hari ini yang bisa dimainkan dengan jari. Bahasa Inggris (mengikuti bahasa atau wilayah macOS, atau pilih di menu ♪) dan README berbahasa Inggris |
 | [**1.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.1) | Slider kecerahan dan volume bergaya Liquid Glass (knob kapsul kaca, jalur tipis berwarna aksen sistem), dengan animasi sentuh: membesar dengan pegas, bening seperti lensa, dan melar saat digeser cepat |
 | [**1.0**](https://github.com/kintarous/lyricsbar/releases/tag/v1.0) | Rilis pertama: lirik sinkron untuk Spotify dan Apple Music, Control Strip mini, tombol emoji, animasi dan perataan lirik, offset per lagu, mode tidur |
 

@@ -196,6 +196,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Version | Changes |
 |---|---|
+| [**1.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.2) | Idle Touch Bar wallpaper with 16 themes, including your own text in black-and-white dot-matrix letters and today's weather that you can play with using your finger. English language (follows your macOS language or region, or pick it in the ♪ menu) and an English README |
 | [**1.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.1) | Liquid Glass brightness and volume sliders (glass capsule knob, thin track in the system accent color), with touch animations: springy growth, lens-like clarity, and stretching on fast drags |
 | [**1.0**](https://github.com/kintarous/lyricsbar/releases/tag/v1.0) | First release: synced lyrics for Spotify and Apple Music, mini Control Strip, emoji button, lyrics animation and alignment, per-song offset, sleep mode |
 

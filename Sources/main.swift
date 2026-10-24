@@ -650,12 +650,13 @@ enum LyricAnimation: String, CaseIterable {
     }
 }
 
-/// Slider bergaya kaca ala Apple. Touch Bar berlatar hitam tanpa apa pun di belakangnya untuk diburamkan,
-/// jadi efek kacanya digambar sendiri: jalur tembus pandang bergaris tepi tipis, isi gradasi warna aksen
-/// dengan kilau di atas, dan knob putih mengilap.
+/// Slider bergaya Liquid Glass ala Apple: jalur tipis polos, isi warna aksen sistem (mengikuti tema di
+/// System Settings › Appearance), dan knob kapsul "kaca" dengan garis tepi putih tipis dan bayangan lembut.
+/// Touch Bar berlatar hitam tanpa apa pun di belakangnya untuk diburamkan, jadi efek kacanya digambar sendiri.
 final class GlassSliderCell: NSSliderCell {
-    private let trackHeight: CGFloat = 10
-    private let knobSize: CGFloat = 20
+    private let trackHeight: CGFloat = 6
+    private let knobWidth: CGFloat = 32
+    private let knobHeight: CGFloat = 21
 
     private var progress: CGFloat {
         guard maxValue > minValue else { return 0 }
@@ -664,58 +665,55 @@ final class GlassSliderCell: NSSliderCell {
 
     override func knobRect(flipped: Bool) -> NSRect {
         let bar = barRect(flipped: flipped)
-        let x = bar.minX + (bar.width - knobSize) * progress
-        return NSRect(x: x, y: bar.midY - knobSize / 2, width: knobSize, height: knobSize)
+        let x = bar.minX + (bar.width - knobWidth) * progress
+        return NSRect(x: x, y: bar.midY - knobHeight / 2, width: knobWidth, height: knobHeight)
     }
 
     override func drawBar(inside rect: NSRect, flipped: Bool) {
         let track = NSRect(x: rect.minX, y: rect.midY - trackHeight / 2, width: rect.width, height: trackHeight)
         let radius = trackHeight / 2
-        let trackPath = NSBezierPath(roundedRect: track, xRadius: radius, yRadius: radius)
 
-        // Jalur: kaca tipis dengan kilau samar di bagian atas.
-        NSColor.white.withAlphaComponent(0.10).setFill()
-        trackPath.fill()
-        NSGradient(starting: NSColor.white.withAlphaComponent(0.14), ending: NSColor.white.withAlphaComponent(0))!
-            .draw(in: trackPath, angle: flipped ? 90 : -90)
+        // Jalur kosong: abu-abu lembut tanpa kilau.
+        NSColor.white.withAlphaComponent(0.22).setFill()
+        NSBezierPath(roundedRect: track, xRadius: radius, yRadius: radius).fill()
 
-        // Isi: dari tepi kiri sampai tengah knob.
+        // Isi: warna aksen polos, dari tepi kiri sampai tengah knob.
         let knob = knobRect(flipped: flipped)
         let filled = NSRect(x: track.minX, y: track.minY, width: max(trackHeight, knob.midX - track.minX), height: trackHeight)
-        let fillPath = NSBezierPath(roundedRect: filled, xRadius: radius, yRadius: radius)
-        let accent = NSColor.controlAccentColor
-        NSGradient(starting: accent.blended(withFraction: 0.35, of: .white) ?? accent, ending: accent)!
-            .draw(in: fillPath, angle: flipped ? 90 : -90)
-        // Kilau tajam di separuh atas, seperti permukaan kaca.
-        let shine = NSRect(x: filled.minX + 2, y: flipped ? filled.minY + 1 : filled.midY, width: max(0, filled.width - 4),
-                           height: trackHeight / 2 - 1)
-        NSGradient(starting: NSColor.white.withAlphaComponent(0.45), ending: NSColor.white.withAlphaComponent(0.05))!
-            .draw(in: NSBezierPath(roundedRect: shine, xRadius: shine.height / 2, yRadius: shine.height / 2),
-                  angle: flipped ? 90 : -90)
-
-        // Garis tepi tipis menyatukan semuanya.
-        NSColor.white.withAlphaComponent(0.22).setStroke()
-        trackPath.lineWidth = 0.75
-        trackPath.stroke()
+        NSColor.controlAccentColor.setFill()
+        NSBezierPath(roundedRect: filled, xRadius: radius, yRadius: radius).fill()
     }
 
     override func drawKnob(_ knobRect: NSRect) {
-        let circle = NSBezierPath(ovalIn: knobRect.insetBy(dx: 1, dy: 1))
+        let capsule = knobRect.insetBy(dx: 1, dy: 1)
+        let path = NSBezierPath(roundedRect: capsule, xRadius: capsule.height / 2, yRadius: capsule.height / 2)
+        let flipped = controlView?.isFlipped == true
+
+        // Bayangan lembut di bawah knob.
         NSGraphicsContext.saveGraphicsState()
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
-        shadow.shadowBlurRadius = 4
-        shadow.shadowOffset = NSSize(width: 0, height: -1)
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.45)
+        shadow.shadowBlurRadius = 6
+        shadow.shadowOffset = NSSize(width: 0, height: -1.5)
         shadow.set()
-        NSColor.white.setFill()
-        circle.fill()
+        NSColor(white: 0.86, alpha: 1).setFill()
+        path.fill()
         NSGraphicsContext.restoreGraphicsState()
 
-        NSGradient(starting: .white, ending: NSColor(white: 0.82, alpha: 1))!
-            .draw(in: circle, angle: controlView?.isFlipped == true ? 90 : -90)
-        NSColor.white.withAlphaComponent(0.9).setStroke()
-        circle.lineWidth = 0.75
-        circle.stroke()
+        // Badan kaca: terang di atas, sedikit lebih gelap di bawah.
+        NSGradient(starting: NSColor(white: 0.93, alpha: 1), ending: NSColor(white: 0.80, alpha: 1))!
+            .draw(in: path, angle: flipped ? 90 : -90)
+
+        // Pantulan tipis di bagian atas dalam.
+        let inner = capsule.insetBy(dx: 1.5, dy: 1.5)
+        let innerPath = NSBezierPath(roundedRect: inner, xRadius: inner.height / 2, yRadius: inner.height / 2)
+        NSGradient(starting: NSColor.white.withAlphaComponent(0.55), ending: NSColor.white.withAlphaComponent(0))!
+            .draw(in: innerPath, angle: flipped ? 90 : -90)
+
+        // Garis tepi putih tipis.
+        NSColor.white.withAlphaComponent(0.95).setStroke()
+        path.lineWidth = 1
+        path.stroke()
     }
 }
 

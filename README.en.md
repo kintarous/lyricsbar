@@ -77,7 +77,7 @@ When nothing is playing and your Mac has been idle for a while, the Touch Bar sh
 <sub><i>Today's weather where you are. Slide a finger: an umbrella in the rain, clouds you can push, fog you can wipe away, a sun you can move</i></sub>
 
 <img src="docs/wallpapers/dino.gif" alt="Dino runner wallpaper" width="100%">
-<sub><i>Dino runner: runs across the bar and jumps the cactus right in the middle</i></sub>
+<sub><i>Dino runner: runs into the middle of the bar, then jumps cacti and ducks under birds</i></sub>
 
 <img src="docs/wallpapers/fish.gif" alt="Swimming fish wallpaper" width="100%">
 <sub><i>Swimming fish</i></sub>

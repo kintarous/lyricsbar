@@ -1389,7 +1389,9 @@ final class SnakeScene: WallpaperScene {
 
 // MARK: Dino runner (main sendiri)
 
-/// Dino berlari dari kiri ke kanan melintasi Touch Bar dan melompati kaktus tepat di tengah bar.
+/// Dino berlari masuk dari kiri sampai ke tengah bar, lalu terus berlari di tengah sementara kaktus dan burung
+/// datang dari kanan: kaktus dilompati, burung yang terbang rendah dihindari dengan menunduk. Posisi "tengah"
+/// bergeser pelan supaya dino tidak diam di piksel yang sama (layar OLED).
 final class DinoScene: WallpaperScene {
     private static let body = [
         ".........########",
@@ -1412,6 +1414,19 @@ final class DinoScene: WallpaperScene {
         ["...##..###.......", "....#...##......."],
     ]
     private static let legsAir = ["...##..##........", "...##..##........"]
+    private static let duck = [
+        "............#######.",
+        "#..........##.######",
+        "##.........#########",
+        "###################.",
+        ".#################..",
+        "..###########.......",
+        "...#########........",
+    ]
+    private static let duckLegs = [
+        ["...##..##...........", "...#....#..........."],
+        ["....##.##...........", "........##.........."],
+    ]
     private static let cactus = [
         "..#..", "..#.#", "#.#.#", "#.#.#", "#.###", "###..", "..#..", "..#..", "..#..", "..#..",
     ]
@@ -1421,64 +1436,88 @@ final class DinoScene: WallpaperScene {
     ]
     private static let cloud = ["....######....", "..##......##..", "##..........##", "##############"]
 
-    private let dinoWidth: CGFloat = 17
-    private let ground: CGFloat = 2
-    private let speed: CGFloat = 120
-    /// Tepi kiri dino; nil = jeda sebelum putaran berikutnya.
-    private var dinoX: CGFloat? = -20
-    private var wait: CGFloat = 0
-    private var jumped = false
-    private var jump: CGFloat = 0
-    private var jumpVelocity: CGFloat = 0
-    private var cactusCount = 1
-    private var stride: CGFloat = 0
-    private var score = 0
-    private var bird: CGPoint?
-    private var clouds: [CGPoint] = []
-
-    override func layout() {
-        clouds = (0..<Int(w / 200) + 1).map { _ in CGPoint(x: rnd(0, w), y: rnd(18, 24)) }
+    private enum Kind {
+        case cactus(count: Int)
+        /// Burung tinggi lewat di atas kepala; burung rendah harus dihindari dengan menunduk.
+        case bird(low: Bool)
     }
 
-    private var cactusWidth: CGFloat { CGFloat(cactusCount) * 6 - 0.5 }
-    private var cactusX: CGFloat { (w - cactusWidth) / 2 }
+    private struct Obstacle {
+        var x: CGFloat
+        var kind: Kind
+        var passed = false
+
+        var width: CGFloat {
+            switch kind {
+            case .cactus(let count): return CGFloat(count) * 6 - 0.5
+            case .bird: return 12
+            }
+        }
+    }
+
+    private let dinoWidth: CGFloat = 17
+    private let ground: CGFloat = 2
+    /// Tepi kiri dino; mulai di luar layar kiri, lalu berlari masuk sampai ke tengah.
+    private var dinoX: CGFloat = -24
+    private var arrived = false
+    private var jump: CGFloat = 0
+    private var jumpVelocity: CGFloat = 0
+    private var ducking = false
+    private var speed: CGFloat = 130
+    private var distance: CGFloat = 0
+    private var score = 0
+    private var obstacles: [Obstacle] = []
+    private var clouds: [CGPoint] = []
+
+    /// Titik tengah tempat dino berlari, bergeser ±40 pt dalam hitungan menit.
+    private var home: CGFloat { (w - dinoWidth) / 2 + 40 * sin(time / 90) }
+
+    override func layout() {
+        clouds = (0..<Int(w / 200) + 1).map { _ in CGPoint(x: rnd(0, w), y: rnd(19, 24)) }
+    }
 
     override func update(_ dt: CGFloat) {
+        distance += speed * dt
         for i in clouds.indices {
-            clouds[i].x -= 6 * dt
-            if clouds[i].x < -20 { clouds[i] = CGPoint(x: w + rnd(0, 100), y: rnd(18, 24)) }
-        }
-        if var b = bird {
-            b.x -= 70 * dt
-            bird = b.x < -20 ? nil : b
-        } else if chance(dt * 0.08) {
-            bird = CGPoint(x: w + 10, y: rnd(22, 24))
+            clouds[i].x -= speed * 0.08 * dt
+            if clouds[i].x < -20 { clouds[i] = CGPoint(x: w + rnd(0, 100), y: rnd(19, 24)) }
         }
 
-        guard let x = dinoX else {
-            wait -= dt
-            if wait <= 0 {
-                // Putaran baru: masuk lagi dari kiri, kaktus di tengah bisa berganti jumlah.
-                dinoX = -dinoWidth - 4
-                jumped = false
-                cactusCount = [1, 1, 2].randomElement()!
+        // Masuk dari kiri lebih cepat dari jalannya dunia, lalu mengikuti titik tengah yang bergeser pelan.
+        if arrived {
+            dinoX += (home - dinoX) * min(1, dt * 2)
+        } else {
+            dinoX += 90 * dt
+            if dinoX >= home { arrived = true }
+        }
+
+        // Rintangan baru muncul dari kanan setelah dino sampai di tengah.
+        if arrived {
+            speed = min(210, speed + dt * 0.4)
+            for i in obstacles.indices { obstacles[i].x -= speed * dt }
+            obstacles.removeAll { $0.x < -30 }
+            if (obstacles.last?.x ?? -.infinity) < w - rnd(170, 360) {
+                let kind: Kind = chance(0.25) ? .bird(low: chance(0.5)) : .cactus(count: [1, 1, 2].randomElement()!)
+                obstacles.append(Obstacle(x: w + 10, kind: kind))
             }
-            return
-        }
-        let next = x + speed * dt
-        dinoX = next
-        stride += speed * dt
-        if next > w + 4 {
-            dinoX = nil
-            wait = rnd(0.8, 1.6)
-            return
+            for i in obstacles.indices where !obstacles[i].passed && obstacles[i].x + obstacles[i].width < dinoX {
+                obstacles[i].passed = true
+                score += 1
+            }
         }
 
-        // Puncak lompatan (0,27 detik setelah melompat) tepat saat kaki dino di atas kaktus di tengah bar.
-        if !jumped, next + 6 >= w / 2 - speed * 0.27 {
-            jumped = true
-            jumpVelocity = 86.5
-            score += 1
+        let feet = dinoX + 6
+        ducking = false
+        for o in obstacles where o.x + o.width > dinoX - 2 {
+            switch o.kind {
+            case .cactus:
+                // Puncak lompatan (0,27 detik setelah melompat) tepat saat kaki di atas tengah kaktus.
+                if jump == 0, jumpVelocity == 0, o.x + o.width / 2 - feet <= speed * 0.27, o.x + o.width / 2 > feet {
+                    jumpVelocity = 86.5
+                }
+            case .bird(let low):
+                if low, o.x - (dinoX + dinoWidth) < speed * 0.25 { ducking = true }
+            }
         }
         if jumpVelocity != 0 || jump > 0 {
             jump += jumpVelocity * dt
@@ -1495,20 +1534,31 @@ final class DinoScene: WallpaperScene {
         ctx.fill(color(0x000000), bounds)
         for c in clouds { ctx.pixels(Self.cloud, at: c, scale: 1, color: color(0x3A3A3A)) }
 
-        // Garis tanah selebar bar selalu ada, jadi dibuat lebih redup dari dino dan kaktus.
+        // Garis tanah selebar bar selalu ada, jadi dibuat lebih redup dari dino dan rintangan.
         ctx.fill(color(0x6E6E6E), CGRect(x: 0, y: ground, width: w, height: 0.8))
-        for k in 0...Int(w / 7) where hash(k) < 0.35 {
-            ctx.fill(color(0x8A8A8A), CGRect(x: CGFloat(k) * 7, y: hash(k + 7) < 0.5 ? 0.3 : 1, width: hash(k + 3) < 0.5 ? 1 : 2, height: 0.6))
+        let first = Int(floor(distance / 7))
+        for k in first...(first + Int(w / 7) + 1) where hash(k) < 0.35 {
+            let x = CGFloat(k) * 7 - distance
+            ctx.fill(color(0x6A6A6A), CGRect(x: x, y: hash(k + 7) < 0.5 ? 0.3 : 1, width: hash(k + 3) < 0.5 ? 1 : 2, height: 0.6))
         }
 
-        for j in 0..<cactusCount {
-            ctx.pixels(Self.cactus, at: CGPoint(x: cactusX + CGFloat(j) * 6, y: ground), scale: 1.1, color: ink)
+        for o in obstacles {
+            switch o.kind {
+            case .cactus(let count):
+                for j in 0..<count {
+                    ctx.pixels(Self.cactus, at: CGPoint(x: o.x + CGFloat(j) * 6, y: ground), scale: 1.1, color: ink)
+                }
+            case .bird(let low):
+                ctx.pixels(Self.bird[Int(time * 6) % 2], at: CGPoint(x: o.x, y: low ? 12.5 : 22), scale: 1, color: ink)
+            }
         }
-        if let b = bird { ctx.pixels(Self.bird[Int(time * 6) % 2], at: b, scale: 1, color: ink) }
 
-        if let x = dinoX {
-            let legs = jump > 0 ? Self.legsAir : Self.legs[Int(stride / 12) % 2]
-            ctx.pixels(Self.body + legs, at: CGPoint(x: x, y: ground + 0.8 + jump), scale: 1, color: ink)
+        let step = Int(distance / 12) % 2
+        let base = CGPoint(x: dinoX, y: ground + 0.8 + jump)
+        if ducking, jump == 0 {
+            ctx.pixels(Self.duck + Self.duckLegs[step], at: base, scale: 1, color: ink)
+        } else {
+            ctx.pixels(Self.body + (jump > 0 ? Self.legsAir : Self.legs[step]), at: base, scale: 1, color: ink)
         }
 
         text(String(format: "%05d", score % 100_000), at: CGPoint(x: w - 40 - 30 * (1 + sin(time / 150)), y: h - 10), size: 8,

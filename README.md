@@ -77,7 +77,7 @@ Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilk
 <sub><i>Cuaca hari ini di lokasimu. Geser jari: payung saat hujan, awan terdorong, kabut tersapu, matahari bisa dipindah</i></sub>
 
 <img src="docs/wallpapers/dino.gif" alt="Wallpaper dino runner" width="100%">
-<sub><i>Dino runner: berlari melintasi bar dan melompati kaktus tepat di tengah</i></sub>
+<sub><i>Dino runner: berlari masuk ke tengah bar, lalu melompati kaktus dan menunduk menghindari burung</i></sub>
 
 <img src="docs/wallpapers/fish.gif" alt="Wallpaper ikan berenang" width="100%">
 <sub><i>Ikan berenang</i></sub>

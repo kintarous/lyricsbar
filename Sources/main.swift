@@ -653,68 +653,169 @@ enum LyricAnimation: String, CaseIterable {
 /// Slider bergaya Liquid Glass ala Apple: jalur tipis polos, isi warna aksen sistem (mengikuti tema di
 /// System Settings › Appearance), dan knob kapsul "kaca" dengan garis tepi putih tipis dan bayangan lembut.
 /// Touch Bar berlatar hitam tanpa apa pun di belakangnya untuk diburamkan, jadi efek kacanya digambar sendiri.
+///
+/// Saat disentuh, knob meniru perilaku Liquid Glass: membesar dengan pegas, berubah bening seperti lensa
+/// (jalur di bawahnya tampak membesar), dan sedikit melar ke arah gerakan saat digeser cepat.
 final class GlassSliderCell: NSSliderCell {
     private let trackHeight: CGFloat = 6
     private let knobWidth: CGFloat = 32
     private let knobHeight: CGFloat = 21
+
+    /// 0 = diam, 1 = ditekan penuh (boleh sedikit lewat dari 1 karena pantulan pegas).
+    private var press: CGFloat = 0
+    private var pressVelocity: CGFloat = 0
+    private var pressTarget: CGFloat = 0
+    /// Seberapa melar knob karena kecepatan geser (0 = bulat normal).
+    private var stretch: CGFloat = 0
+    private var lastDrag: (x: CGFloat, time: TimeInterval)?
+    private var animationTimer: Timer?
 
     private var progress: CGFloat {
         guard maxValue > minValue else { return 0 }
         return CGFloat((doubleValue - minValue) / (maxValue - minValue))
     }
 
-    override func knobRect(flipped: Bool) -> NSRect {
+    /// Titik tengah knob; jarak tempuhnya dihitung dari ukuran diam supaya posisi tidak bergeser saat membesar.
+    private func knobCenter(flipped: Bool) -> NSPoint {
         let bar = barRect(flipped: flipped)
-        let x = bar.minX + (bar.width - knobWidth) * progress
-        return NSRect(x: x, y: bar.midY - knobHeight / 2, width: knobWidth, height: knobHeight)
+        return NSPoint(x: bar.minX + knobWidth / 2 + (bar.width - knobWidth) * progress, y: bar.midY)
     }
 
-    override func drawBar(inside rect: NSRect, flipped: Bool) {
-        let track = NSRect(x: rect.minX, y: rect.midY - trackHeight / 2, width: rect.width, height: trackHeight)
-        let radius = trackHeight / 2
+    override func knobRect(flipped: Bool) -> NSRect {
+        let center = knobCenter(flipped: flipped)
+        let grow = 1 + 0.32 * press
+        let width = knobWidth * grow * (1 + stretch)
+        let height = min(28, knobHeight * grow * (1 - stretch * 0.35))
+        return NSRect(x: center.x - width / 2, y: center.y - height / 2, width: width, height: height)
+    }
 
-        // Jalur kosong: abu-abu lembut tanpa kilau.
+    // MARK: Sentuhan
+
+    override func startTracking(at startPoint: NSPoint, in controlView: NSView) -> Bool {
+        pressTarget = 1
+        lastDrag = (startPoint.x, ProcessInfo.processInfo.systemUptime)
+        startAnimating()
+        return super.startTracking(at: startPoint, in: controlView)
+    }
+
+    override func continueTracking(last lastPoint: NSPoint, current currentPoint: NSPoint, in controlView: NSView) -> Bool {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let last = lastDrag, now > last.time {
+            let speed = abs(currentPoint.x - last.x) / CGFloat(now - last.time) // pt per detik
+            stretch = max(stretch, min(0.28, speed / 2500))
+        }
+        lastDrag = (currentPoint.x, now)
+        startAnimating()
+        return super.continueTracking(last: lastPoint, current: currentPoint, in: controlView)
+    }
+
+    override func stopTracking(last lastPoint: NSPoint, current stopPoint: NSPoint, in controlView: NSView, mouseIsUp flag: Bool) {
+        pressTarget = 0
+        lastDrag = nil
+        startAnimating()
+        super.stopTracking(last: lastPoint, current: stopPoint, in: controlView, mouseIsUp: flag)
+    }
+
+    /// Pegas sederhana 60 fps; berhenti sendiri begitu diam. Mode .common supaya tetap jalan selama slider digeser.
+    private func startAnimating() {
+        guard animationTimer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
+            guard let self else { return timer.invalidate() }
+            self.pressVelocity = self.pressVelocity * 0.70 + (self.pressTarget - self.press) * 0.24
+            self.press += self.pressVelocity
+            self.stretch *= 0.84
+            if abs(self.pressTarget - self.press) < 0.002, abs(self.pressVelocity) < 0.002, self.stretch < 0.002 {
+                self.press = self.pressTarget
+                self.pressVelocity = 0
+                self.stretch = 0
+                timer.invalidate()
+                self.animationTimer = nil
+            }
+            self.controlView?.needsDisplay = true
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        animationTimer = timer
+    }
+
+    // MARK: Gambar
+
+    private func drawTrack(in rect: NSRect, height: CGFloat, fillUntil x: CGFloat) {
+        let track = NSRect(x: rect.minX, y: rect.midY - height / 2, width: rect.width, height: height)
+        let radius = height / 2
         NSColor.white.withAlphaComponent(0.22).setFill()
         NSBezierPath(roundedRect: track, xRadius: radius, yRadius: radius).fill()
-
-        // Isi: warna aksen polos, dari tepi kiri sampai tengah knob.
-        let knob = knobRect(flipped: flipped)
-        let filled = NSRect(x: track.minX, y: track.minY, width: max(trackHeight, knob.midX - track.minX), height: trackHeight)
+        let filled = NSRect(x: track.minX, y: track.minY, width: max(height, x - track.minX), height: height)
         NSColor.controlAccentColor.setFill()
         NSBezierPath(roundedRect: filled, xRadius: radius, yRadius: radius).fill()
     }
 
+    override func drawBar(inside rect: NSRect, flipped: Bool) {
+        // Isi warna aksen dari tepi kiri sampai tengah knob.
+        drawTrack(in: rect, height: trackHeight, fillUntil: knobCenter(flipped: flipped).x)
+    }
+
     override func drawKnob(_ knobRect: NSRect) {
+        let flipped = controlView?.isFlipped == true
+        let p = max(0, min(1.1, press))
         let capsule = knobRect.insetBy(dx: 1, dy: 1)
         let path = NSBezierPath(roundedRect: capsule, xRadius: capsule.height / 2, yRadius: capsule.height / 2)
-        let flipped = controlView?.isFlipped == true
 
-        // Bayangan lembut di bawah knob.
+        // Bayangan: makin lebar dan samar saat ditekan, seperti kaca terangkat.
         NSGraphicsContext.saveGraphicsState()
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.45)
-        shadow.shadowBlurRadius = 6
-        shadow.shadowOffset = NSSize(width: 0, height: -1.5)
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.45 - 0.15 * p)
+        shadow.shadowBlurRadius = 6 + 5 * p
+        shadow.shadowOffset = NSSize(width: 0, height: -1.5 - 1.5 * p)
         shadow.set()
-        NSColor(white: 0.86, alpha: 1).setFill()
+        NSColor(white: 0.86, alpha: 1 - 0.8 * p).setFill()
         path.fill()
         NSGraphicsContext.restoreGraphicsState()
 
-        // Badan kaca: terang di atas, sedikit lebih gelap di bawah.
-        NSGradient(starting: NSColor(white: 0.93, alpha: 1), ending: NSColor(white: 0.80, alpha: 1))!
-            .draw(in: path, angle: flipped ? 90 : -90)
+        // Lensa: jalur di bawah knob tampak lebih tebal (membesar) di dalam kaca saat ditekan.
+        if p > 0.01 {
+            NSGraphicsContext.saveGraphicsState()
+            path.addClip()
+            NSGraphicsContext.current?.cgContext.setAlpha(min(1, p))
+            let bar = barRect(flipped: flipped)
+            drawTrack(in: NSRect(x: bar.minX, y: bar.midY - 10, width: bar.width, height: 20),
+                      height: trackHeight * (1 + 0.9 * p), fillUntil: knobCenter(flipped: flipped).x)
+            NSGraphicsContext.restoreGraphicsState()
+        }
 
-        // Pantulan tipis di bagian atas dalam.
+        // Badan kaca: gradasi putih pekat saat diam, memudar menjadi lapisan putih tipis yang rata saat ditekan
+        // (gradasi abu-abu yang sangat tipis di atas hitam menimbulkan garis-garis, jadi tidak dipakai).
+        let solid = max(0, 1 - p)
+        if solid > 0.01 {
+            NSGradient(starting: NSColor(white: 0.93, alpha: solid), ending: NSColor(white: 0.80, alpha: solid))!
+                .draw(in: path, angle: flipped ? 90 : -90)
+        }
+        NSColor.white.withAlphaComponent(0.10 * min(1, p)).setFill()
+        path.fill()
+
+        // Pantulan cahaya: menutupi bagian atas saat diam, menjadi kilau tipis di tepi atas saat ditekan.
         let inner = capsule.insetBy(dx: 1.5, dy: 1.5)
-        let innerPath = NSBezierPath(roundedRect: inner, xRadius: inner.height / 2, yRadius: inner.height / 2)
+        let shineHeight = inner.height * (0.9 - 0.45 * min(1, p))
+        let shine = NSRect(x: inner.minX + inner.height * 0.15 * p, y: flipped ? inner.minY : inner.maxY - shineHeight,
+                           width: inner.width - inner.height * 0.3 * p, height: shineHeight)
         NSGradient(starting: NSColor.white.withAlphaComponent(0.55), ending: NSColor.white.withAlphaComponent(0))!
-            .draw(in: innerPath, angle: flipped ? 90 : -90)
+            .draw(in: NSBezierPath(roundedRect: shine, xRadius: shine.height / 2, yRadius: shine.height / 2),
+                  angle: flipped ? 90 : -90)
 
-        // Garis tepi putih tipis.
+        // Cahaya lembut di sepanjang tepi dalam, seperti cahaya yang terbias di pinggir kaca.
+        if p > 0.01 {
+            let glow = NSBezierPath(roundedRect: capsule.insetBy(dx: 2, dy: 2),
+                                    xRadius: (capsule.height - 4) / 2, yRadius: (capsule.height - 4) / 2)
+            NSColor.white.withAlphaComponent(0.28 * min(1, p)).setStroke()
+            glow.lineWidth = 1.5
+            glow.stroke()
+        }
+
+        // Garis tepi putih tipis; sedikit lebih tebal saat ditekan supaya bentuk kaca tetap terbaca.
         NSColor.white.withAlphaComponent(0.95).setStroke()
-        path.lineWidth = 1
+        path.lineWidth = 1 + 0.4 * p
         path.stroke()
     }
+
 }
 
 /// Baris slider yang rapi: ikon kecil, slider, ikon besar, lalu persentase, tanpa kotak label abu-abu

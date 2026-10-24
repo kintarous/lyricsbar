@@ -62,6 +62,82 @@ For Spotify and Apple Music on the MacBook Pro.
 <sub><i>Tap ☀︎ or 🔊: a full-width Liquid Glass slider that goes back to the lyrics on its own after 4 seconds.</i></sub>
 </div>
 
+## Idle wallpaper
+
+When nothing is playing and your Mac has been idle for a while, the Touch Bar shows the animation you picked. **Tap** to get the standard buttons back. Choose a theme and how long to wait in ♪ › **Idle wallpaper**; picking a theme shows it on the Touch Bar right away.
+
+<div align="center">
+
+<img src="docs/wallpapers/text.gif" alt="Your own text wallpaper: black-and-white dot-matrix letters" width="100%">
+<sub><i>Your own text: your name or initials in black-and-white dot-matrix letters</i></sub>
+
+<img src="docs/wallpapers/weather-en.gif" alt="Weather wallpaper: rain with an umbrella that follows your finger" width="100%">
+<sub><i>Today's weather where you are. Slide a finger: an umbrella in the rain, clouds you can push, fog you can wipe away, a sun you can move</i></sub>
+
+<img src="docs/wallpapers/dino.gif" alt="Dino runner wallpaper" width="100%">
+<sub><i>Dino runner: runs across the bar and jumps the cactus right in the middle</i></sub>
+
+<img src="docs/wallpapers/fish.gif" alt="Swimming fish wallpaper" width="100%">
+<sub><i>Swimming fish</i></sub>
+
+</div>
+
+<details>
+<summary><b>See all 16 themes</b></summary>
+<br>
+
+**Your own text**<br>
+<img src="docs/wallpapers/text.png" alt="Your own text" width="100%">
+
+**Today's weather**<br>
+<img src="docs/wallpapers/weather-en.png" alt="Today's weather" width="100%">
+
+**Swimming fish**<br>
+<img src="docs/wallpapers/fish.png" alt="Swimming fish" width="100%">
+
+**Passing train**<br>
+<img src="docs/wallpapers/train.png" alt="Passing train" width="100%">
+
+**Rain and lightning**<br>
+<img src="docs/wallpapers/rain.png" alt="Rain and lightning" width="100%">
+
+**Clouds and birds**<br>
+<img src="docs/wallpapers/sky.png" alt="Clouds and birds" width="100%">
+
+**City at night**<br>
+<img src="docs/wallpapers/city.png" alt="City at night" width="100%">
+
+**Flowing particles**<br>
+<img src="docs/wallpapers/flow.png" alt="Flowing particles" width="100%">
+
+**Aurora**<br>
+<img src="docs/wallpapers/aurora.png" alt="Aurora" width="100%">
+
+**Fireflies**<br>
+<img src="docs/wallpapers/fireflies.png" alt="Fireflies" width="100%">
+
+**Matrix rain**<br>
+<img src="docs/wallpapers/matrix.png" alt="Matrix rain" width="100%">
+
+**Game of Life**<br>
+<img src="docs/wallpapers/life.png" alt="Game of Life" width="100%">
+
+**Wandering cat**<br>
+<img src="docs/wallpapers/cat.png" alt="Wandering cat" width="100%">
+
+**Marching ants**<br>
+<img src="docs/wallpapers/ants.png" alt="Marching ants" width="100%">
+
+**Snake (autoplay)**<br>
+<img src="docs/wallpapers/snake.png" alt="Snake (autoplay)" width="100%">
+
+**Dino runner (autoplay)**<br>
+<img src="docs/wallpapers/dino.png" alt="Dino runner (autoplay)" width="100%">
+
+</details>
+
+<sub><i>Rendered straight from the app with <code>--render-wallpaper</code>. The weather data is an example.</i></sub>
+
 ## Requirements
 
 - 💻 A MacBook Pro **with a Touch Bar** (2016–2022, Intel or Apple Silicon)

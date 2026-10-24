@@ -62,6 +62,82 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 <sub><i>Ketuk ☀︎ atau 🔊: slider selebar Touch Bar bergaya Liquid Glass, kembali ke lirik sendiri setelah 4 detik.</i></sub>
 </div>
 
+## Wallpaper saat idle
+
+Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilkan animasi pilihanmu. **Ketuk** untuk kembali ke tombol bawaan. Pilih tema dan lama menunggunya di menu ♪ › **Wallpaper saat idle**; memilih tema langsung menampilkannya di Touch Bar.
+
+<div align="center">
+
+<img src="docs/wallpapers/text.gif" alt="Wallpaper teks sendiri: huruf dot-matrix hitam putih" width="100%">
+<sub><i>Teks sendiri: nama atau inisialmu dalam huruf dot-matrix hitam putih</i></sub>
+
+<img src="docs/wallpapers/weather.gif" alt="Wallpaper cuaca: hujan dengan payung yang mengikuti jari" width="100%">
+<sub><i>Cuaca hari ini di lokasimu. Geser jari: payung saat hujan, awan terdorong, kabut tersapu, matahari bisa dipindah</i></sub>
+
+<img src="docs/wallpapers/dino.gif" alt="Wallpaper dino runner" width="100%">
+<sub><i>Dino runner: berlari melintasi bar dan melompati kaktus tepat di tengah</i></sub>
+
+<img src="docs/wallpapers/fish.gif" alt="Wallpaper ikan berenang" width="100%">
+<sub><i>Ikan berenang</i></sub>
+
+</div>
+
+<details>
+<summary><b>Lihat semua 16 tema</b></summary>
+<br>
+
+**Teks sendiri**<br>
+<img src="docs/wallpapers/text.png" alt="Teks sendiri" width="100%">
+
+**Cuaca hari ini**<br>
+<img src="docs/wallpapers/weather.png" alt="Cuaca hari ini" width="100%">
+
+**Ikan berenang**<br>
+<img src="docs/wallpapers/fish.png" alt="Ikan berenang" width="100%">
+
+**Kereta lewat**<br>
+<img src="docs/wallpapers/train.png" alt="Kereta lewat" width="100%">
+
+**Hujan dan kilat**<br>
+<img src="docs/wallpapers/rain.png" alt="Hujan dan kilat" width="100%">
+
+**Awan dan burung**<br>
+<img src="docs/wallpapers/sky.png" alt="Awan dan burung" width="100%">
+
+**Kota malam**<br>
+<img src="docs/wallpapers/city.png" alt="Kota malam" width="100%">
+
+**Partikel mengalir**<br>
+<img src="docs/wallpapers/flow.png" alt="Partikel mengalir" width="100%">
+
+**Aurora**<br>
+<img src="docs/wallpapers/aurora.png" alt="Aurora" width="100%">
+
+**Kunang-kunang**<br>
+<img src="docs/wallpapers/fireflies.png" alt="Kunang-kunang" width="100%">
+
+**Matrix rain**<br>
+<img src="docs/wallpapers/matrix.png" alt="Matrix rain" width="100%">
+
+**Game of Life**<br>
+<img src="docs/wallpapers/life.png" alt="Game of Life" width="100%">
+
+**Kucing jalan-jalan**<br>
+<img src="docs/wallpapers/cat.png" alt="Kucing jalan-jalan" width="100%">
+
+**Semut berbaris**<br>
+<img src="docs/wallpapers/ants.png" alt="Semut berbaris" width="100%">
+
+**Ular (main sendiri)**<br>
+<img src="docs/wallpapers/snake.png" alt="Ular (main sendiri)" width="100%">
+
+**Dino runner (main sendiri)**<br>
+<img src="docs/wallpapers/dino.png" alt="Dino runner (main sendiri)" width="100%">
+
+</details>
+
+<sub><i>Gambar dirender langsung dari app dengan <code>--render-wallpaper</code>. Data cuacanya contoh.</i></sub>
+
 ## Kebutuhan
 
 - 💻 MacBook Pro **dengan Touch Bar** (2016–2022, Intel maupun Apple Silicon)

@@ -64,9 +64,9 @@ Untuk Spotify dan Apple Music di MacBook Pro.
 
 ## Wallpaper saat idle
 
-Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilkan animasi pilihanmu. Wallpaper tetap tampil walau kamu mengetik atau mengklik; **ketuk** Touch Bar untuk kembali ke tombol bawaan (atau pilih menu ♪ › Wallpaper saat idle › Tutup saat › *Disentuh, mengetik, atau klik*). Pilih tema dan lama menunggunya di menu ♪ › **Wallpaper saat idle**; memilih tema langsung menampilkannya di Touch Bar.
+Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilkan animasi pilihanmu. Wallpaper tetap tampil walau kamu mengetik atau mengklik; **ketuk** Touch Bar untuk kembali ke tombol bawaan (atau pilih ♪ › Pengaturan › Tutup saat › *Disentuh, mengetik, atau klik*). Pilih tema di menu ♪ › **Wallpaper saat idle**; memilih tema langsung menampilkannya di Touch Bar. Lama menunggu, kapan ditutup, dan mode tenang diatur di ♪ › **Pengaturan**.
 
-**Aman untuk layar OLED Touch Bar:** seluruh gambar bergeser beberapa piksel secara berkala, kecerahan maksimumnya dibatasi, elemen yang diam (suhu, matahari, bulan, garis tanah) dibuat redup dan bergeser pelan, dan setelah 1 jam tampil tanpa disentuh, animasinya meredup dan melambat sampai disentuh lagi.
+**Aman untuk layar OLED Touch Bar:** seluruh gambar bergeser beberapa piksel secara berkala, kecerahan maksimumnya dibatasi, elemen yang diam (suhu, matahari, bulan, garis tanah) dibuat redup dan bergeser pelan, dan setelah lama tampil tanpa disentuh (bawaannya 1 jam, bisa 15 menit sampai 4 jam atau tidak pernah), animasinya meredup dan melambat sampai disentuh lagi.
 
 <div align="center">
 
@@ -77,7 +77,7 @@ Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilk
 <sub><i>Cuaca hari ini di lokasimu. Geser jari: payung saat hujan, awan terdorong, kabut tersapu, matahari bisa dipindah</i></sub>
 
 <img src="docs/wallpapers/dino.gif" alt="Wallpaper dino runner" width="100%">
-<sub><i>Dino runner: berlari masuk ke tengah bar, lalu melompati kaktus dan menunduk menghindari burung</i></sub>
+<sub><i>Dino runner: berlari masuk ke tengah bar, lalu melompati kaktus kecil dan besar. Setelah skor 450 muncul burung: yang rendah dilompati, yang di tengah ditunduki, yang tinggi dibiarkan lewat</i></sub>
 
 <img src="docs/wallpapers/fish.gif" alt="Wallpaper ikan berenang" width="100%">
 <sub><i>Ikan berenang</i></sub>
@@ -191,9 +191,9 @@ Semua pengaturan ada di ikon **♪** di menu bar.
 | Buka folder lirik sendiri… | Tempat menaruh file `.lrc` buatanmu |
 | Animasi lirik | Geser ke atas, pudar, atau tanpa animasi |
 | Perataan lirik | Rata kiri, tengah, atau kanan |
-| Wallpaper saat idle | Pilih tema (langsung dipratinjau), teks sendiri, lokasi cuaca, lama menunggu, dan kapan wallpaper ditutup (disentuh saja, atau juga saat mengetik/klik) |
+| Wallpaper saat idle | Pilih tema (langsung dipratinjau), teks sendiri, dan lokasi cuaca |
 | Bahasa | Ikuti sistem, Bahasa Indonesia, atau English |
-| Lirik juga di menu bar | Menampilkan baris lirik di menu bar |
+| Pengaturan | **Wallpaper:** muncul setelah Mac tidak dipakai (30 detik–5 menit), tutup saat (disentuh saja, atau juga saat mengetik/klik), mode tenang (15 menit–4 jam, atau tidak pernah). **Lirik:** lirik juga di menu bar |
 | Buka saat login | Menjalankan Lyricsbar otomatis setiap login |
 </details>
 

@@ -1697,7 +1697,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let languageItem = NSMenuItem(title: L("Bahasa", "Language"), action: nil, keyEquivalent: "")
         languageItem.submenu = languageMenu
         menu.addItem(languageItem)
-        action(L("Lirik juga di menu bar", "Also show lyrics in menu bar"), #selector(toggleMenuBar), on: showInMenuBar)
+        menu.addItem(settingsMenuItem())
         action(L("Buka saat login", "Open at login"), #selector(toggleLogin), on: SMAppService.mainApp.status == .enabled)
         if !SystemTouchBar.isAvailable { info(L("⚠︎ API Touch Bar sistem tidak tersedia di macOS ini", "⚠︎ The system Touch Bar API isn't available on this macOS")) }
         menu.addItem(.separator())
@@ -1707,7 +1707,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Wallpaper
 
-    /// Submenu "Wallpaper saat idle": pilih tema (langsung dipratinjau di Touch Bar) dan jedanya.
+    /// Submenu "Wallpaper saat idle": pilih tema (langsung dipratinjau di Touch Bar), teks, dan lokasi cuaca.
     private func wallpaperMenuItem() -> NSMenuItem {
         let submenu = NSMenu()
         func add(_ title: String, _ selector: Selector, _ value: Any?, on: Bool) {
@@ -1725,22 +1725,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(L("Ubah teks (\(WallpaperTheme.customText))…", "Edit text (\(WallpaperTheme.customText))…"), #selector(editWallpaperText), nil, on: false)
         add(L("Lokasi cuaca (\(WeatherService.shared.manualCity?.name ?? "otomatis"))…", "Weather location (\(WeatherService.shared.manualCity?.name ?? "automatic"))…"), #selector(editWeatherCity), nil, on: false)
         submenu.addItem(.separator())
-        let header = NSMenuItem(title: L("Muncul setelah Mac tidak dipakai", "Show after the Mac is idle for"), action: nil, keyEquivalent: "")
-        header.isEnabled = false
-        submenu.addItem(header)
-        for seconds in IdleWallpaper.delays {
-            let title = seconds < 60 ? L("\(Int(seconds)) detik", "\(Int(seconds)) seconds")
-                : L("\(Int(seconds / 60)) menit", seconds == 60 ? "1 minute" : "\(Int(seconds / 60)) minutes")
-            add(title, #selector(chooseWallpaperDelay(_:)), seconds, on: wallpaper.delay == seconds)
-        }
-        submenu.addItem(.separator())
-        let closeHeader = NSMenuItem(title: L("Tutup saat", "Close when"), action: nil, keyEquivalent: "")
-        closeHeader.isEnabled = false
-        submenu.addItem(closeHeader)
-        add(L("Touch Bar disentuh saja", "The Touch Bar is touched"), #selector(chooseWallpaperClose(_:)), false, on: !wallpaper.closesOnInput)
-        add(L("Disentuh, mengetik, atau klik", "Touched, typing, or clicking"), #selector(chooseWallpaperClose(_:)), true,
-            on: wallpaper.closesOnInput)
-        submenu.addItem(.separator())
         let previewItem = NSMenuItem(title: L("Pratinjau sekarang", "Preview now"), action: #selector(previewWallpaper), keyEquivalent: "")
         previewItem.target = self
         previewItem.isEnabled = wallpaper.theme != nil
@@ -1749,6 +1733,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let item = NSMenuItem(title: L("Wallpaper saat idle", "Idle wallpaper"), action: nil, keyEquivalent: "")
         item.submenu = submenu
         return item
+    }
+
+    /// Submenu "Pengaturan": kapan wallpaper muncul, kapan ditutup, kapan masuk mode tenang, dan lirik di menu bar.
+    private func settingsMenuItem() -> NSMenuItem {
+        let submenu = NSMenu()
+        func header(_ title: String) {
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.isEnabled = false
+            submenu.addItem(item)
+        }
+        func choices(_ title: String, _ options: [(String, Any, Bool)], _ selector: Selector) {
+            let menu = NSMenu()
+            for (label, value, on) in options {
+                let item = NSMenuItem(title: label, action: selector, keyEquivalent: "")
+                item.target = self
+                item.representedObject = value
+                item.state = on ? .on : .off
+                menu.addItem(item)
+            }
+            let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+            item.submenu = menu
+            submenu.addItem(item)
+        }
+        func duration(_ seconds: TimeInterval) -> String {
+            if seconds < 60 { return L("\(Int(seconds)) detik", "\(Int(seconds)) seconds") }
+            if seconds < 3600 { return L("\(Int(seconds / 60)) menit", seconds == 60 ? "1 minute" : "\(Int(seconds / 60)) minutes") }
+            return L("\(Int(seconds / 3600)) jam", seconds == 3600 ? "1 hour" : "\(Int(seconds / 3600)) hours")
+        }
+
+        header(L("Wallpaper saat idle", "Idle wallpaper"))
+        choices(L("Muncul setelah Mac tidak dipakai", "Show after the Mac is idle for"),
+                IdleWallpaper.delays.map { (duration($0), $0, wallpaper.delay == $0) }, #selector(chooseWallpaperDelay(_:)))
+        choices(L("Tutup saat", "Close when"), [
+            (L("Touch Bar disentuh saja", "The Touch Bar is touched"), false, !wallpaper.closesOnInput),
+            (L("Disentuh, mengetik, atau klik", "Touched, typing, or clicking"), true, wallpaper.closesOnInput),
+        ], #selector(chooseWallpaperClose(_:)))
+        choices(L("Mode tenang (redup dan pelan)", "Calm mode (dim and slow)"), IdleWallpaper.calmOptions.map { seconds in
+            (seconds < 0 ? L("Tidak pernah", "Never") : L("Setelah \(duration(seconds)) tanpa disentuh", "After \(duration(seconds)) without a touch"),
+             seconds, wallpaper.calmAfter == seconds)
+        }, #selector(chooseWallpaperCalm(_:)))
+        submenu.addItem(.separator())
+        header(L("Lirik", "Lyrics"))
+        let menuBar = NSMenuItem(title: L("Lirik juga di menu bar", "Also show lyrics in menu bar"), action: #selector(toggleMenuBar), keyEquivalent: "")
+        menuBar.target = self
+        menuBar.state = showInMenuBar ? .on : .off
+        submenu.addItem(menuBar)
+
+        let item = NSMenuItem(title: L("Pengaturan", "Settings"), action: nil, keyEquivalent: "")
+        item.submenu = submenu
+        return item
+    }
+
+    @objc private func chooseWallpaperCalm(_ sender: NSMenuItem) {
+        if let seconds = sender.representedObject as? TimeInterval { wallpaper.calmAfter = seconds }
     }
 
     @objc private func chooseWallpaper(_ sender: NSMenuItem) {

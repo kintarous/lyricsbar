@@ -1389,9 +1389,10 @@ final class SnakeScene: WallpaperScene {
 
 // MARK: Dino runner (main sendiri)
 
-/// Dino berlari masuk dari kiri sampai ke tengah bar, lalu terus berlari di tengah sementara kaktus dan burung
-/// datang dari kanan: kaktus dilompati, burung yang terbang rendah dihindari dengan menunduk. Posisi "tengah"
-/// bergeser pelan supaya dino tidak diam di piksel yang sama (layar OLED).
+/// Dino berlari masuk dari kiri sampai ke tengah bar, lalu terus berlari di tengah sementara rintangan ala
+/// Chrome Dino datang dari kanan: kaktus kecil (1–3) dan kaktus besar (1–2) dilompati; setelah skor 450 muncul
+/// burung di tiga ketinggian: rendah dilompati, tengah ditunduki, tinggi lewat di atas kepala.
+/// Posisi "tengah" bergeser pelan supaya dino tidak diam di piksel yang sama (layar OLED).
 final class DinoScene: WallpaperScene {
     private static let body = [
         ".........########",
@@ -1427,8 +1428,12 @@ final class DinoScene: WallpaperScene {
         ["...##..##...........", "...#....#..........."],
         ["....##.##...........", "........##.........."],
     ]
-    private static let cactus = [
+    private static let smallCactus = [
         "..#..", "..#.#", "#.#.#", "#.#.#", "#.###", "###..", "..#..", "..#..", "..#..", "..#..",
+    ]
+    private static let largeCactus = [
+        "...#...", "..###..", "..###.#", "#.###.#", "#.###.#", "#.#####",
+        "#.###..", "#####..", "..###..", "..###..", "..###..", "..###..",
     ]
     private static let bird = [
         ["....#.......", "....##......", "..#.###.....", ".##########.", "....#####..."],
@@ -1437,9 +1442,22 @@ final class DinoScene: WallpaperScene {
     private static let cloud = ["....######....", "..##......##..", "##..........##", "##############"]
 
     private enum Kind {
-        case cactus(count: Int)
-        /// Burung tinggi lewat di atas kepala; burung rendah harus dihindari dengan menunduk.
-        case bird(low: Bool)
+        case smallCactus(count: Int)
+        case largeCactus(count: Int)
+        case bird(Altitude)
+    }
+
+    /// Ketinggian burung: rendah dilompati, tengah ditunduki, tinggi dibiarkan lewat.
+    private enum Altitude: CaseIterable {
+        case low, middle, high
+
+        var y: CGFloat {
+            switch self {
+            case .low: return 1.8
+            case .middle: return 11
+            case .high: return 19.5
+            }
+        }
     }
 
     private struct Obstacle {
@@ -1449,14 +1467,29 @@ final class DinoScene: WallpaperScene {
 
         var width: CGFloat {
             switch kind {
-            case .cactus(let count): return CGFloat(count) * 6 - 0.5
+            case .smallCactus(let count): return CGFloat(count) * 5.5 - 0.5
+            case .largeCactus(let count): return CGFloat(count) * 7.5 - 0.5
             case .bird: return 12
+            }
+        }
+
+        /// Rintangan yang harus dilompati.
+        var mustJump: Bool {
+            switch kind {
+            case .smallCactus, .largeCactus, .bird(.low): return true
+            case .bird: return false
             }
         }
     }
 
     private let dinoWidth: CGFloat = 17
-    private let ground: CGFloat = 2
+    /// Tanah sengaja rendah supaya kaktus besar tetap bisa dilompati di Touch Bar setinggi 30 pt.
+    private let ground: CGFloat = 0.5
+    /// Lompatan setinggi 12,7 pt; puncaknya dicapai 0,29 detik setelah melompat.
+    private let jumpSpeed: CGFloat = 87.3
+    private let gravity: CGFloat = 300
+    private var apexTime: CGFloat { jumpSpeed / gravity }
+
     /// Tepi kiri dino; mulai di luar layar kiri, lalu berlari masuk sampai ke tengah.
     private var dinoX: CGFloat = -24
     private var arrived = false
@@ -1465,7 +1498,9 @@ final class DinoScene: WallpaperScene {
     private var ducking = false
     private var speed: CGFloat = 130
     private var distance: CGFloat = 0
-    private var score = 0
+    /// Jarak tempuh sejak dino sampai di tengah; skor ala Chrome sekitar 10 poin per detik di awal.
+    private var run: CGFloat = 0
+    private var score: Int { Int(run / 13) }
     private var obstacles: [Obstacle] = []
     private var clouds: [CGPoint] = []
 
@@ -1473,14 +1508,21 @@ final class DinoScene: WallpaperScene {
     private var home: CGFloat { (w - dinoWidth) / 2 + 40 * sin(time / 90) }
 
     override func layout() {
-        clouds = (0..<Int(w / 200) + 1).map { _ in CGPoint(x: rnd(0, w), y: rnd(19, 24)) }
+        clouds = (0..<Int(w / 200) + 1).map { _ in CGPoint(x: rnd(0, w), y: rnd(20, 25)) }
+    }
+
+    private func randomObstacle() -> Kind {
+        let roll = CGFloat.random(in: 0..<1)
+        // Burung baru muncul setelah skor 450, seperti di Chrome.
+        if score >= 450, roll < 0.25 { return .bird(Altitude.allCases.randomElement()!) }
+        return roll < 0.65 ? .smallCactus(count: [1, 1, 2, 3].randomElement()!) : .largeCactus(count: [1, 1, 2].randomElement()!)
     }
 
     override func update(_ dt: CGFloat) {
         distance += speed * dt
         for i in clouds.indices {
             clouds[i].x -= speed * 0.08 * dt
-            if clouds[i].x < -20 { clouds[i] = CGPoint(x: w + rnd(0, 100), y: rnd(19, 24)) }
+            if clouds[i].x < -20 { clouds[i] = CGPoint(x: w + rnd(0, 100), y: rnd(20, 25)) }
         }
 
         // Masuk dari kiri lebih cepat dari jalannya dunia, lalu mengikuti titik tengah yang bergeser pelan.
@@ -1493,35 +1535,32 @@ final class DinoScene: WallpaperScene {
 
         // Rintangan baru muncul dari kanan setelah dino sampai di tengah.
         if arrived {
+            run += speed * dt
             speed = min(210, speed + dt * 0.4)
             for i in obstacles.indices { obstacles[i].x -= speed * dt }
             obstacles.removeAll { $0.x < -30 }
             if (obstacles.last?.x ?? -.infinity) < w - rnd(170, 360) {
-                let kind: Kind = chance(0.25) ? .bird(low: chance(0.5)) : .cactus(count: [1, 1, 2].randomElement()!)
-                obstacles.append(Obstacle(x: w + 10, kind: kind))
+                obstacles.append(Obstacle(x: w + 10, kind: randomObstacle()))
             }
             for i in obstacles.indices where !obstacles[i].passed && obstacles[i].x + obstacles[i].width < dinoX {
                 obstacles[i].passed = true
-                score += 1
             }
         }
 
-        let feet = dinoX + 6
+        let feet = dinoX + 6.5
         ducking = false
         for o in obstacles where o.x + o.width > dinoX - 2 {
-            switch o.kind {
-            case .cactus:
-                // Puncak lompatan (0,27 detik setelah melompat) tepat saat kaki di atas tengah kaktus.
-                if jump == 0, jumpVelocity == 0, o.x + o.width / 2 - feet <= speed * 0.27, o.x + o.width / 2 > feet {
-                    jumpVelocity = 86.5
-                }
-            case .bird(let low):
-                if low, o.x - (dinoX + dinoWidth) < speed * 0.25 { ducking = true }
+            if o.mustJump {
+                // Puncak lompatan tepat saat kaki di atas tengah rintangan.
+                let center = o.x + o.width / 2
+                if jump == 0, jumpVelocity == 0, center - feet <= speed * apexTime, center > feet { jumpVelocity = jumpSpeed }
+            } else if case .bird(.middle) = o.kind, o.x - (dinoX + 20) < speed * 0.25 {
+                ducking = true
             }
         }
         if jumpVelocity != 0 || jump > 0 {
             jump += jumpVelocity * dt
-            jumpVelocity -= 320 * dt
+            jumpVelocity -= gravity * dt
             if jump <= 0 {
                 jump = 0
                 jumpVelocity = 0
@@ -1539,17 +1578,21 @@ final class DinoScene: WallpaperScene {
         let first = Int(floor(distance / 7))
         for k in first...(first + Int(w / 7) + 1) where hash(k) < 0.35 {
             let x = CGFloat(k) * 7 - distance
-            ctx.fill(color(0x6A6A6A), CGRect(x: x, y: hash(k + 7) < 0.5 ? 0.3 : 1, width: hash(k + 3) < 0.5 ? 1 : 2, height: 0.6))
+            ctx.fill(color(0x4A4A4A), CGRect(x: x, y: 0, width: hash(k + 3) < 0.5 ? 1 : 2, height: 0.4))
         }
 
         for o in obstacles {
             switch o.kind {
-            case .cactus(let count):
+            case .smallCactus(let count):
                 for j in 0..<count {
-                    ctx.pixels(Self.cactus, at: CGPoint(x: o.x + CGFloat(j) * 6, y: ground), scale: 1.1, color: ink)
+                    ctx.pixels(Self.smallCactus, at: CGPoint(x: o.x + CGFloat(j) * 5.5, y: ground), scale: 1, color: ink)
                 }
-            case .bird(let low):
-                ctx.pixels(Self.bird[Int(time * 6) % 2], at: CGPoint(x: o.x, y: low ? 12.5 : 22), scale: 1, color: ink)
+            case .largeCactus(let count):
+                for j in 0..<count {
+                    ctx.pixels(Self.largeCactus, at: CGPoint(x: o.x + CGFloat(j) * 7.5, y: ground), scale: 1, color: ink)
+                }
+            case .bird(let altitude):
+                ctx.pixels(Self.bird[Int(time * 6) % 2], at: CGPoint(x: o.x, y: altitude.y), scale: 1, color: ink)
             }
         }
 
@@ -2444,11 +2487,17 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
         set { UserDefaults.standard.set(newValue, forKey: "wallpaperClosesOnInput") }
     }
 
-    /// Setelah selama ini tampil tanpa disentuh, wallpaper masuk mode tenang (lebih redup dan lambat).
-    /// Untuk uji: `defaults write local.touchbarlyrics wallpaperCalmAfter -float 10`.
-    private var calmAfter: TimeInterval {
-        let value = UserDefaults.standard.double(forKey: "wallpaperCalmAfter")
-        return value > 0 ? value : 60 * 60
+    /// Pilihan mode tenang di menu; -1 = tidak pernah.
+    static let calmOptions: [TimeInterval] = [15 * 60, 30 * 60, 60 * 60, 2 * 60 * 60, 4 * 60 * 60, -1]
+
+    /// Setelah selama ini tampil tanpa disentuh, wallpaper masuk mode tenang (lebih redup dan lambat); -1 = tidak pernah.
+    /// Bawaannya 1 jam. Untuk uji bisa diisi detik berapa pun: `defaults write local.touchbarlyrics wallpaperCalmAfter -float 10`.
+    var calmAfter: TimeInterval {
+        get {
+            let value = UserDefaults.standard.double(forKey: "wallpaperCalmAfter")
+            return value != 0 ? value : 60 * 60
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "wallpaperCalmAfter") }
     }
 
     private let bar = NSTouchBar()
@@ -2515,7 +2564,7 @@ final class IdleWallpaper: NSObject, NSTouchBarDelegate {
             let fromTouch = (view.touchSpan.lowerBound - 0.3)...(view.touchSpan.upperBound + 0.3) ~= inputAt
             let typedOrClicked = closesOnInput && inputAt > shownAt + 0.5 && !fromTouch
             if typedOrClicked || (!previewing && !canShow()) { return hide() }
-            view.isCalm = now - max(shownAt, view.touchSpan.upperBound) > calmAfter
+            view.isCalm = calmAfter > 0 && now - max(shownAt, view.touchSpan.upperBound) > calmAfter
             return
         }
         // Setelah ditutup dengan sentuhan, tunggu satu jeda penuh lagi (sentuhan Touch Bar tidak mengubah `idle`).

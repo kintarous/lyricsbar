@@ -1455,7 +1455,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
 
-        schedule(every: 0.5) { $0.poll() }
+        // Saat lagu diputar dibaca dua kali per detik supaya lirik tepat waktu; saat dijeda atau berhenti cukup
+        // setiap 1,5 detik (setiap pembacaan menjalankan AppleScript ke Spotify/Music, dan itu tidak murah).
+        schedule(every: 0.5) { app in
+            let now = ProcessInfo.processInfo.systemUptime
+            guard app.clock.playing || now - app.lastPoll >= 1.5 else { return }
+            app.poll()
+        }
         schedule(every: 1.0 / 30) { $0.render() }
         poll()
     }
@@ -1474,9 +1480,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let playerQueue = DispatchQueue(label: "local.touchbarlyrics.player")
     private var polling = false
 
+    private var lastPoll: TimeInterval = 0
+
     private func poll() {
         guard !polling else { return }
         polling = true
+        lastPoll = ProcessInfo.processInfo.systemUptime
         playerQueue.async { [reader] in
             let (status, player) = reader.read()
             DispatchQueue.main.async {
@@ -1639,8 +1648,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private var menuBarKey: String?
-    private let menuBarLabel = NSTextField(labelWithString: "")
-    private let menuBarIcon = NSImageView()
     private static let noteIcon: NSImage? = {
         let image = NSImage(systemSymbolName: "music.note", accessibilityDescription: L("Lirik", "Lyrics"))
         image?.isTemplate = true
@@ -1649,6 +1656,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Lirik di menu bar memakai area selebar tetap supaya perataan kiri/tengah/kanan terlihat;
     /// ikon ♪ tetap di kiri, teks yang terlalu panjang dipotong dengan "…".
+    ///
+    /// Ikon dan lirik digambar menjadi satu gambar template, bukan view tambahan di dalam tombol: macOS terus
+    /// memotret tombol menu bar untuk salinannya, dan view tambahan ikut ditandai "perlu digambar ulang" setiap
+    /// kali dipotret, sehingga pemotretan berulang tanpa henti dan memakan sekitar 40% CPU.
     private func renderMenuBar(_ text: String) {
         guard let button = statusItem.button else { return }
         let key = showInMenuBar ? alignment.rawValue + menuBarWidth.rawValue + text : ""
@@ -1657,38 +1668,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         guard showInMenuBar else {
             statusItem.length = NSStatusItem.variableLength
-            menuBarLabel.isHidden = true
-            menuBarIcon.isHidden = true
             button.image = Self.noteIcon
+            button.setAccessibilityLabel(L("Lirik", "Lyrics"))
             return
         }
-        // Judul dan ikon tombol menu bar selalu ditaruh di tengah oleh macOS, jadi ikon ♪ dan lirik
-        // memakai view sendiri: ikon terkunci di kiri, lirik di sebelahnya dengan perataan pilihan.
-        if menuBarLabel.superview == nil {
-            menuBarIcon.image = Self.noteIcon
-            menuBarIcon.translatesAutoresizingMaskIntoConstraints = false
-            menuBarLabel.font = .menuBarFont(ofSize: 0)
-            menuBarLabel.lineBreakMode = .byTruncatingTail
-            menuBarLabel.translatesAutoresizingMaskIntoConstraints = false
-            button.addSubview(menuBarIcon)
-            button.addSubview(menuBarLabel)
-            NSLayoutConstraint.activate([
-                menuBarIcon.leadingAnchor.constraint(equalTo: button.leadingAnchor, constant: 6),
-                menuBarIcon.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-                // Ukuran ikon dikunci supaya tidak ikut melebar dan mendorong lirik ke kanan.
-                menuBarIcon.widthAnchor.constraint(equalToConstant: 16),
-                menuBarIcon.heightAnchor.constraint(equalToConstant: 16),
-                menuBarLabel.leadingAnchor.constraint(equalTo: menuBarIcon.trailingAnchor, constant: 6),
-                menuBarLabel.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -6),
-                menuBarLabel.centerYAnchor.constraint(equalTo: button.centerYAnchor),
-            ])
-        }
         statusItem.length = menuBarWidth.points
-        button.image = nil
-        menuBarIcon.isHidden = false
-        menuBarLabel.isHidden = false
-        menuBarLabel.alignment = alignment.textAlignment
-        menuBarLabel.stringValue = text
+        button.imagePosition = .imageOnly
+        button.image = Self.menuBarImage(text, width: menuBarWidth.points - 8, alignment: alignment.textAlignment)
+        button.setAccessibilityLabel(text)
+    }
+
+    /// Gambar template (hitam di atas transparan): macOS mewarnainya sendiri mengikuti menu bar terang/gelap.
+    private static func menuBarImage(_ text: String, width: CGFloat, alignment: NSTextAlignment) -> NSImage {
+        let height = NSStatusBar.system.thickness
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = alignment
+        paragraph.lineBreakMode = .byTruncatingTail
+        let attributes: [NSAttributedString.Key: Any] = [.font: NSFont.menuBarFont(ofSize: 0), .foregroundColor: NSColor.black,
+                                                         .paragraphStyle: paragraph]
+        let image = NSImage(size: NSSize(width: width, height: height), flipped: false) { _ in
+            let iconSize: CGFloat = 16
+            noteIcon?.draw(in: NSRect(x: 2, y: (height - iconSize) / 2, width: iconSize, height: iconSize))
+            let textHeight = (text as NSString).size(withAttributes: attributes).height
+            let textRect = NSRect(x: 2 + iconSize + 6, y: (height - textHeight) / 2, width: width - iconSize - 10, height: textHeight)
+            (text as NSString).draw(with: textRect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: attributes)
+            return true
+        }
+        image.isTemplate = true
+        return image
     }
 
     // MARK: Menu

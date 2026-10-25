@@ -154,7 +154,7 @@ class WallpaperScene {
 }
 
 enum WallpaperTheme: String, CaseIterable {
-    case text, weather, fish, train, rain, sky, city, flow, aurora, fireflies, matrix, life, cat, ants, snake, dino
+    case text, weather, fish, train, rain, sky, city, flow, aurora, fireflies, matrix, life, cat, dog, ants, snake, dino
 
     var title: String {
         switch self {
@@ -169,6 +169,7 @@ enum WallpaperTheme: String, CaseIterable {
         case .matrix: return "Matrix rain"
         case .life: return "Game of Life"
         case .cat: return L("Kucing jalan-jalan", "Wandering cat")
+        case .dog: return L("Anjing bermain bola", "Dog playing ball")
         case .ants: return L("Semut berbaris", "Marching ants")
         case .snake: return L("Ular (main sendiri)", "Snake (autoplay)")
         case .dino: return L("Dino runner (main sendiri)", "Dino runner (autoplay)")
@@ -191,6 +192,7 @@ enum WallpaperTheme: String, CaseIterable {
         case .matrix: return MatrixScene()
         case .life: return LifeScene()
         case .cat: return CatScene()
+        case .dog: return DogScene()
         case .ants: return AntsScene()
         case .snake: return SnakeScene()
         case .dino: return DinoScene()
@@ -1241,6 +1243,272 @@ final class CatScene: WallpaperScene {
             ctx.fillEllipse(color(0xFFB3E6, 0.9), CGPoint(x: fly.x + side * 1.2 * flap, y: fly.y - 1), 1.2 * flap + 0.2, 1.2)
         }
         ctx.fill(color(0x302030), CGRect(x: fly.x - 0.3, y: fly.y - 1.6, width: 0.6, height: 3))
+    }
+}
+
+// MARK: Anjing bermain bola
+
+/// Anjing yang bermain bola sendiri: mengejar bola yang menggelinding atau memantul (melompat kalau bolanya
+/// masih di udara), menggigit dan membawanya ke tempat lain, menjatuhkannya, membungkuk ajak main, lalu
+/// menyundul bola itu lagi. Sesekali duduk menunggu atau rebahan sambil mengibaskan ekor.
+final class DogScene: WallpaperScene {
+    override var frameRate: Double { 20 }
+
+    private enum State { case chase, carry, bow, wait, rest, toss }
+
+    private var x: CGFloat = 120
+    private var dir: CGFloat = 1
+    private var state = State.wait
+    private var timer: CGFloat = 1
+    private var stride: CGFloat = 0
+    private var target: CGFloat = 0
+    /// Lompatan (pt di atas tanah) dan kecepatannya, untuk menangkap bola di udara.
+    private var hop: CGFloat = 0
+    private var hopVelocity: CGFloat = 0
+
+    private var ball = CGPoint(x: 300, y: 3)
+    private var ballVelocity = CGVector(dx: 0, dy: 0)
+    private var ballSpin: CGFloat = 0
+    private var holding = false
+
+    private let ground: CGFloat = 3
+    private let ballRadius: CGFloat = 2.6
+    private let fur = color(0xC48A52)
+    private let darkFur = color(0x7E5131)
+    private let muzzle = color(0xE8C9A0)
+
+    override func layout() {
+        x = min(x, w - 40)
+        ball = CGPoint(x: rnd(200, w - 60), y: ground + ballRadius)
+    }
+
+    /// Posisi mulut, tempat bola digigit.
+    private var mouth: CGPoint { CGPoint(x: x + dir * 17, y: ground + 9.5 + hop) }
+    private var ballOnGround: Bool { ball.y <= ground + ballRadius + 0.3 && abs(ballVelocity.dy) < 1 }
+
+    override func update(_ dt: CGFloat) {
+        timer -= dt
+        updateBall(dt)
+        if hop > 0 || hopVelocity != 0 {
+            hop += hopVelocity * dt
+            hopVelocity -= 260 * dt
+            if hop <= 0 {
+                hop = 0
+                hopVelocity = 0
+            }
+        }
+
+        switch state {
+        case .chase:
+            let distance = ball.x - mouth.x
+            if abs(distance) > 2 { dir = ball.x > x ? 1 : -1 }
+            x += dir * min(abs(distance), 62 * dt)
+            stride += dt * 18
+            // Bola masih di udara dan tepat di depan: lompat menangkapnya.
+            if hop == 0, ball.y > ground + 8, abs(ball.x - mouth.x) < 18, ballVelocity.dy < 40 { hopVelocity = 75 }
+            if abs(ball.x - mouth.x) < 4, abs(ball.y - mouth.y) < 6 || ballOnGround && abs(ball.x - mouth.x) < 3 {
+                holding = true
+                state = .carry
+                // Dibawa tidak terlalu jauh, ke arah yang masih ada ruangnya.
+                let side: CGFloat = x < 140 ? 1 : (x > w - 140 ? -1 : (chance(0.5) ? 1 : -1))
+                target = max(40, min(w - 40, x + side * rnd(80, 220)))
+            }
+        case .carry:
+            let distance = target - x
+            if abs(distance) > 1 { dir = distance > 0 ? 1 : -1 }
+            x += dir * min(abs(distance), 34 * dt)
+            stride += dt * 12
+            if abs(distance) < 2, hop == 0 {
+                // Jatuhkan bola, lalu membungkuk ajak main.
+                holding = false
+                ballVelocity = CGVector(dx: dir * 6, dy: 0)
+                state = .bow
+                timer = 0.8
+            }
+        case .bow:
+            if timer <= 0 { nudge() }
+        case .wait:
+            if timer <= 0 {
+                if chance(0.15) {
+                    state = .rest
+                    timer = rnd(4, 7)
+                } else {
+                    state = .chase
+                }
+            }
+        case .rest:
+            if timer <= 0 { state = .chase }
+        case .toss:
+            // Bola dilambungkan ke atas: berdiri di bawahnya, lalu melompat menangkapnya saat bola turun.
+            let offset = ball.x - mouth.x
+            if abs(offset) > 1 { x += max(-30 * dt, min(30 * dt, offset)) }
+            // Melompat sekitar 0,11 detik sebelum bola di puncaknya, supaya bola tertangkap di puncak lompatan.
+            if hop == 0, ballVelocity.dy > 0, ballVelocity.dy < 300 * 0.11 { hopVelocity = 75 }
+            if !holding, ballVelocity.dy < 0, abs(ball.x - mouth.x) < 5, abs(ball.y - mouth.y) < 5 {
+                holding = true
+                state = .carry
+                let side: CGFloat = x < 140 ? 1 : (x > w - 140 ? -1 : (chance(0.5) ? 1 : -1))
+                target = max(40, min(w - 40, x + side * rnd(80, 220)))
+            } else if ballOnGround, ball.y < mouth.y - 3 {
+                state = .chase
+            }
+        }
+        x = max(24, min(w - 24, x))
+    }
+
+    /// Menyundul bola: kadang dilambungkan lurus ke atas untuk ditangkap sendiri, kadang menggelinding jauh,
+    /// kadang melambung lalu memantul.
+    private func nudge() {
+        if chance(0.35) {
+            ballVelocity = CGVector(dx: dir * rnd(3, 8), dy: rnd(110, 115))
+            state = .toss
+            return
+        }
+        let away: CGFloat = x < w / 2 ? 1 : (x > w / 2 ? -1 : dir)
+        let lob = chance(0.5)
+        ballVelocity = CGVector(dx: away * rnd(lob ? 70 : 90, lob ? 120 : 170), dy: lob ? rnd(70, 110) : 0)
+        dir = away
+        state = .wait
+        timer = rnd(0.6, 1.6)
+    }
+
+    private func updateBall(_ dt: CGFloat) {
+        if holding {
+            ball = mouth
+            ballVelocity = CGVector(dx: 0, dy: 0)
+            return
+        }
+        ballVelocity.dy -= 300 * dt
+        ball.x += ballVelocity.dx * dt
+        ball.y += ballVelocity.dy * dt
+        if ball.y <= ground + ballRadius {
+            ball.y = ground + ballRadius
+            ballVelocity.dy = ballVelocity.dy < -25 ? -ballVelocity.dy * 0.55 : 0
+            ballVelocity.dx *= pow(0.45, dt)
+        }
+        if ball.x < ballRadius + 2 || ball.x > w - ballRadius - 2 {
+            ballVelocity.dx = -ballVelocity.dx * 0.6
+            ball.x = max(ballRadius + 2, min(w - ballRadius - 2, ball.x))
+        }
+        ballSpin -= ballVelocity.dx * dt / ballRadius
+    }
+
+    override func draw(_ ctx: CGContext) {
+        ctx.verticalGradient([color(0x0E1420), color(0x18202C)], bounds)
+        ctx.fill(color(0x1F2A22), CGRect(x: 0, y: 0, width: w, height: ground))
+        ctx.fill(color(0x2C3A2E), CGRect(x: 0, y: ground, width: w, height: 0.5))
+        // Bayangan bola, mengecil saat bola tinggi.
+        let lift = max(0, ball.y - ground - ballRadius)
+        ctx.fillEllipse(color(0x000000, 0.35 * max(0.2, 1 - lift / 20)), CGPoint(x: ball.x, y: ground + 0.3), ballRadius * (1 - min(0.5, lift / 40)), 0.6)
+
+        switch state {
+        case .wait: drawSitting(ctx)
+        case .rest: drawLying(ctx)
+        default: drawStanding(ctx, bow: state == .bow)
+        }
+        drawBall(ctx)
+    }
+
+    private var tailWag: CGFloat {
+        let speed: CGFloat = state == .rest ? 3 : (state == .chase ? 10 : 16)
+        return sin(time * speed)
+    }
+
+    private func head(_ ctx: CGContext, at c: CGPoint, mouthOpen: Bool) {
+        ctx.fillEllipse(fur, c, 5, 4.6)
+        // Moncong dan hidung.
+        ctx.fillEllipse(muzzle, CGPoint(x: c.x + dir * 4.2, y: c.y - 1.2), 3.2, 2.2)
+        ctx.fillEllipse(color(0x1A1210), CGPoint(x: c.x + dir * 7, y: c.y - 0.6), 1.1, 0.9)
+        if mouthOpen {
+            ctx.fillEllipse(color(0xE57A86), CGPoint(x: c.x + dir * 4.5, y: c.y - 3.2), 1.2, 1.1)
+        }
+        // Mata.
+        let blinking = wrap(time, 5) < 0.15
+        let eye = CGPoint(x: c.x + dir * 1.6, y: c.y + 1.3)
+        if blinking {
+            ctx.line(color(0x1A1210), 0.6, [CGPoint(x: eye.x - 0.8, y: eye.y), CGPoint(x: eye.x + 0.8, y: eye.y)])
+        } else {
+            ctx.fillEllipse(color(0x1A1210), eye, 0.8, 0.9)
+        }
+        // Telinga lipat yang ikut bergoyang saat berlari.
+        let flap = state == .chase ? sin(stride) * 1.2 : 0
+        ctx.setFillColor(darkFur)
+        ctx.beginPath()
+        ctx.move(to: CGPoint(x: c.x - dir * 1.5, y: c.y + 3.8))
+        ctx.addQuadCurve(to: CGPoint(x: c.x - dir * 3.8, y: c.y - 2.5 + flap), control: CGPoint(x: c.x - dir * 5.5, y: c.y + 3))
+        ctx.addLine(to: CGPoint(x: c.x - dir * 1.8, y: c.y - 1 + flap))
+        ctx.closePath()
+        ctx.fillPath()
+    }
+
+    private func tail(_ ctx: CGContext, from base: CGPoint, length: CGFloat, up: CGFloat) {
+        let wag = tailWag * 3.5
+        ctx.setStrokeColor(fur)
+        ctx.setLineWidth(2)
+        ctx.setLineCap(.round)
+        ctx.beginPath()
+        ctx.move(to: base)
+        ctx.addQuadCurve(to: CGPoint(x: base.x - dir * (length * 0.6) + wag * 0.4, y: base.y + up + wag * 0.5),
+                         control: CGPoint(x: base.x - dir * length, y: base.y + up * 0.3))
+        ctx.strokePath()
+    }
+
+    private func drawStanding(_ ctx: CGContext, bow: Bool) {
+        let running = state == .chase || state == .carry
+        let bob = running && hop == 0 ? abs(sin(stride)) * 0.7 : 0
+        let y = ground + hop + bob
+        // Saat membungkuk ajak main: dada rendah, pantat dan ekor tinggi.
+        let front: CGFloat = bow ? -3 : 0
+        tail(ctx, from: CGPoint(x: x - dir * 10, y: y + 9), length: 8, up: bow ? 9 : 6)
+        let legs: [(offset: CGFloat, phase: CGFloat, color: CGColor)] = [
+            (-8, .pi, darkFur), (-5.5, 0, fur), (5.5, 0, darkFur), (8, .pi, fur),
+        ]
+        for leg in legs {
+            let isFront = leg.offset > 0
+            let hip = CGPoint(x: x + dir * leg.offset, y: y + (isFront ? 6 + front : 6.5))
+            let swing = running ? sin(stride + leg.phase) * (hop > 0 ? 1 : 3) : 0
+            let foot = CGPoint(x: hip.x + dir * swing + (bow && isFront ? dir * 3 : 0), y: ground + hop + 0.3)
+            ctx.line(leg.color, 2.2, [hip, foot])
+        }
+        ctx.saveGState()
+        ctx.translateBy(x: x, y: y + 9)
+        ctx.rotate(by: bow ? -dir * 0.22 : 0)
+        ctx.fillEllipse(fur, CGPoint(x: 0, y: 0), 11, 4.6)
+        ctx.fillEllipse(muzzle, CGPoint(x: dir * 4, y: -2.2), 5, 1.8)
+        ctx.restoreGState()
+        // Kalung merah.
+        ctx.fillEllipse(color(0xD9443F), CGPoint(x: x + dir * 8.6, y: y + 10.5 + front * 0.6), 1.2, 2.6)
+        head(ctx, at: CGPoint(x: x + dir * 11.5, y: y + 13.5 + front * 1.6), mouthOpen: running && !holding)
+    }
+
+    private func drawSitting(_ ctx: CGContext) {
+        let y = ground
+        tail(ctx, from: CGPoint(x: x - dir * 5, y: y + 2), length: 7, up: 1)
+        ctx.line(darkFur, 2.2, [CGPoint(x: x - dir * 4, y: y + 3), CGPoint(x: x - dir * 1, y: y + 0.3)])
+        ctx.fillEllipse(fur, CGPoint(x: x - dir * 1, y: y + 7.5), 7, 6.2)
+        ctx.fillEllipse(muzzle, CGPoint(x: x + dir * 3, y: y + 8), 2.6, 4)
+        ctx.line(fur, 2.2, [CGPoint(x: x + dir * 3.5, y: y + 7), CGPoint(x: x + dir * 4, y: y + 0.3)])
+        ctx.line(darkFur, 2.2, [CGPoint(x: x + dir * 1.5, y: y + 7), CGPoint(x: x + dir * 1.8, y: y + 0.3)])
+        ctx.fillEllipse(color(0xD9443F), CGPoint(x: x + dir * 2.6, y: y + 13), 2.4, 1.1)
+        head(ctx, at: CGPoint(x: x + dir * 3, y: y + 17.5), mouthOpen: true)
+    }
+
+    private func drawLying(_ ctx: CGContext) {
+        let y = ground
+        let breath = sin(time * 1.8) * 0.4
+        tail(ctx, from: CGPoint(x: x - dir * 11, y: y + 2.5), length: 7, up: 0)
+        ctx.fillEllipse(fur, CGPoint(x: x, y: y + 4), 12, 3.8 + breath)
+        ctx.line(fur, 2.2, [CGPoint(x: x + dir * 8, y: y + 1.2), CGPoint(x: x + dir * 15, y: y + 1.2)])
+        ctx.line(darkFur, 2.2, [CGPoint(x: x + dir * 7, y: y + 0.6), CGPoint(x: x + dir * 13.5, y: y + 0.6)])
+        head(ctx, at: CGPoint(x: x + dir * 11, y: y + 6.5), mouthOpen: false)
+    }
+
+    private func drawBall(_ ctx: CGContext) {
+        ctx.fillEllipse(color(0xE5484D), ball, ballRadius, ballRadius)
+        // Garis putih yang ikut berputar saat bola menggelinding.
+        let a = ballSpin
+        ctx.line(color(0xFFFFFF, 0.9), 0.8, [CGPoint(x: ball.x - cos(a) * ballRadius * 0.9, y: ball.y - sin(a) * ballRadius * 0.9),
+                                             CGPoint(x: ball.x + cos(a) * ballRadius * 0.9, y: ball.y + sin(a) * ballRadius * 0.9)])
     }
 }
 

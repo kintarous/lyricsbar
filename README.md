@@ -51,7 +51,7 @@ Untuk Spotify dan Apple Music, di Mac dengan atau tanpa Touch Bar.
 | ↔️ **Perataan** | Rata kiri, tengah, atau kanan, di Touch Bar maupun menu bar |
 | ⏱️ **Offset per lagu** | Lirik terlalu cepat atau lambat? Geser ±0,5 detik, tersimpan per lagu |
 | 🎧 **Spotify & Apple Music** | Pemutar yang sedang memutar lagu dipakai otomatis |
-| 🐠 **Wallpaper saat idle** | Saat tidak ada lagu dan Mac lama tidak disentuh, Touch Bar menampilkan animasi: ikan, kereta, hujan, kota malam, aurora, kucing, dino, dan lainnya (16 tema), termasuk teks buatanmu sendiri (nama atau inisial) dalam huruf dot-matrix hitam putih, dan cuaca hari ini di lokasimu dalam hitam putih yang bisa dimainkan: geser jari untuk memunculkan payung saat hujan, mendorong awan, menyapu kabut, atau memindah matahari. Ketuk untuk kembali ke tombol bawaan |
+| 🐠 **Wallpaper saat idle** | Saat tidak ada lagu dan Mac lama tidak disentuh, Touch Bar menampilkan animasi: ikan, kereta, hujan, kota malam, aurora, kucing, anjing bermain bola, dino, dan lainnya (17 tema), termasuk teks buatanmu sendiri (nama atau inisial) dalam huruf dot-matrix hitam putih, dan cuaca hari ini di lokasimu dalam hitam putih yang bisa dimainkan: geser jari untuk memunculkan payung saat hujan, mendorong awan, menyapu kabut, atau memindah matahari. Ketuk untuk kembali ke tombol bawaan |
 | 🌐 **Indonesia & Inggris** | Bahasa Indonesia kalau bahasa atau wilayah macOS-mu Indonesia, selain itu Inggris. Bisa juga dipilih di menu ♪ |
 | 🖥️ **Tanpa Touch Bar pun bisa** | Di Mac tanpa Touch Bar, Lyricsbar otomatis menampilkan lirik di menu bar dan menyembunyikan fitur khusus Touch Bar |
 | 💤 **Tahu diri** | Kembali ke Touch Bar bawaan saat musik dijeda. Saat Spotify dan Music ditutup, ikon ♪ meredup tapi tetap ada, jadi pengaturan selalu bisa dibuka |
@@ -89,7 +89,7 @@ Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilk
 </div>
 
 <details>
-<summary><b>Lihat semua 16 tema</b></summary>
+<summary><b>Lihat semua 17 tema</b></summary>
 <br>
 
 **Teks sendiri**<br>
@@ -130,6 +130,9 @@ Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilk
 
 **Kucing jalan-jalan**<br>
 <img src="docs/wallpapers/cat.png" alt="Kucing jalan-jalan" width="100%">
+
+**Anjing bermain bola**<br>
+<img src="docs/wallpapers/dog.png" alt="Anjing bermain bola" width="100%">
 
 **Semut berbaris**<br>
 <img src="docs/wallpapers/ants.png" alt="Semut berbaris" width="100%">

@@ -51,7 +51,7 @@ For Spotify and Apple Music, on Macs with or without a Touch Bar.
 | ↔️ **Alignment** | Left, center, or right, on the Touch Bar and in the menu bar |
 | ⏱️ **Per-song offset** | Lyrics too early or too late? Shift them by ±0.5 s, saved per song |
 | 🎧 **Spotify & Apple Music** | Whichever player is playing is used automatically |
-| 🐠 **Idle wallpaper** | When nothing is playing and the Mac has been idle for a while, the Touch Bar shows an animation: fish, a train, rain, a city at night, aurora, a cat, a dino, and more (16 themes), including your own text (a name or initials) in black-and-white dot-matrix letters, and today's weather where you are, in black and white and playable: slide a finger to open an umbrella in the rain, push clouds, wipe away fog, or move the sun. Tap to get the standard buttons back |
+| 🐠 **Idle wallpaper** | When nothing is playing and the Mac has been idle for a while, the Touch Bar shows an animation: fish, a train, rain, a city at night, aurora, a cat, a dog playing ball, a dino, and more (17 themes), including your own text (a name or initials) in black-and-white dot-matrix letters, and today's weather where you are, in black and white and playable: slide a finger to open an umbrella in the rain, push clouds, wipe away fog, or move the sun. Tap to get the standard buttons back |
 | 🌐 **English & Indonesian** | Indonesian when your macOS language or region is Indonesia, English otherwise. You can also pick one in the ♪ menu |
 | 🖥️ **Works without a Touch Bar too** | On a Mac without a Touch Bar, Lyricsbar shows the lyrics in the menu bar automatically and hides the Touch Bar-only features |
 | 💤 **Stays out of the way** | Returns to the standard Touch Bar when music is paused. When Spotify and Music are closed, the ♪ icon dims but stays put, so the settings are always reachable |
@@ -89,7 +89,7 @@ When nothing is playing and your Mac has been idle for a while, the Touch Bar sh
 </div>
 
 <details>
-<summary><b>See all 16 themes</b></summary>
+<summary><b>See all 17 themes</b></summary>
 <br>
 
 **Your own text**<br>
@@ -130,6 +130,9 @@ When nothing is playing and your Mac has been idle for a while, the Touch Bar sh
 
 **Wandering cat**<br>
 <img src="docs/wallpapers/cat.png" alt="Wandering cat" width="100%">
+
+**Dog playing ball**<br>
+<img src="docs/wallpapers/dog.png" alt="Dog playing ball" width="100%">
 
 **Marching ants**<br>
 <img src="docs/wallpapers/ants.png" alt="Marching ants" width="100%">

@@ -27,6 +27,10 @@ private func wrap(_ x: CGFloat, _ length: CGFloat) -> CGFloat {
 
 private let sRGB = CGColorSpace(name: CGColorSpace.sRGB)!
 
+/// Ruang warna layar tempat wallpaper tampil (Touch Bar memakai Display P3). Kanvas tersendiri milik adegan dibuat
+/// dalam ruang warna ini; kalau berbeda, setiap kali kanvas ditempel semua pikselnya dikonversi, dan itu mahal.
+private var drawingSpace: CGColorSpace = sRGB
+
 /// Gradien cahaya per warna; warnanya dibulatkan supaya cahaya yang kecerahannya berubah halus (berkedip) tetap
 /// memakai beberapa gradien saja.
 private var glowGradients: [UInt64: CGGradient] = [:]
@@ -68,6 +72,16 @@ private extension CGContext {
     func glow(_ c: CGColor, _ center: CGPoint, _ radius: CGFloat) {
         guard radius > 0, let gradient = glowGradient(c) else { return }
         drawRadialGradient(gradient, startCenter: center, startRadius: 0, endCenter: center, endRadius: radius, options: [])
+    }
+
+    /// Gumpalan lembut berbentuk elips (awan, asap): cahaya bulat yang direntangkan mendatar.
+    func blob(_ c: CGColor, _ center: CGPoint, _ rx: CGFloat, _ ry: CGFloat) {
+        guard rx > 0, ry > 0 else { return }
+        saveGState()
+        translateBy(x: center.x, y: center.y)
+        scaleBy(x: rx / ry, y: 1)
+        glow(c, .zero, ry)
+        restoreGState()
     }
 
     func line(_ c: CGColor, _ width: CGFloat, _ points: [CGPoint]) {
@@ -129,6 +143,12 @@ class WallpaperScene {
     func resize(_ newSize: CGSize) {
         guard newSize.width > 0, newSize != size else { return }
         size = newSize
+        layout()
+    }
+
+    /// Susun ulang adegan (kanvas dibuat lagi), misalnya karena ruang warna layar berubah.
+    func relayout() {
+        guard size.width > 0 else { return }
         layout()
     }
 
@@ -734,7 +754,7 @@ final class FlowScene: WallpaperScene {
     override func layout() {
         particles = (0..<Int(w / 3.2)).map { _ in Particle(x: rnd(0, w), y: rnd(0, h), life: rnd(2, 8)) }
         trail = CGContext(data: nil, width: Int(w * 2), height: Int(h * 2), bitsPerComponent: 8, bytesPerRow: 0,
-                          space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+                          space: drawingSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         trail?.scaleBy(x: 2, y: 2)
         trail?.fill(color(0x000000), bounds)
     }
@@ -798,10 +818,10 @@ final class AuroraScene: WallpaperScene {
     override func layout() {
         stars = (0..<90).map { _ in CGPoint(x: rnd(0, w), y: rnd(4, h - 1)) }
         sky = CGContext(data: nil, width: Int(ceil(w * skyScale)), height: Int(ceil(h * skyScale)), bitsPerComponent: 8, bytesPerRow: 0,
-                        space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+                        space: drawingSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
         sky?.scaleBy(x: skyScale, y: skyScale)
         if let ctx = CGContext(data: nil, width: Int(w * 2), height: Int(h * 2), bitsPerComponent: 8, bytesPerRow: 0,
-                               space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
+                               space: drawingSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) {
             ctx.scaleBy(x: 2, y: 2)
             ctx.fillTerrain(color(0x010307), width: w, step: 8) { x in
                 3 + 3 * sin(x * 0.015) + 2 * sin(x * 0.043 + 1) + (hash(Int(x / 8)) > 0.8 ? 2 : 0)
@@ -905,7 +925,7 @@ final class FirefliesScene: WallpaperScene {
     private func redrawGrass() {
         grassDrawnAt = time
         guard let ctx = CGContext(data: nil, width: Int(w * 2), height: 20, bitsPerComponent: 8, bytesPerRow: 0,
-                                  space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+                                  space: drawingSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
         ctx.scaleBy(x: 2, y: 2)
         ctx.setStrokeColor(color(0x0F2A16))
         ctx.setLineWidth(0.9)
@@ -933,11 +953,13 @@ final class MatrixScene: WallpaperScene {
     private var columns: [Column] = []
     private var green: [CGImage] = []
     private var white: [CGImage] = []
+    private var glyphSpace: CGColorSpace?
 
     override func layout() {
         rows = Int(h / cell)
         columns = (0..<Int(w / cell)).map { _ in newColumn(head: rnd(-12, CGFloat(rows))) }
-        if green.isEmpty {
+        if green.isEmpty || glyphSpace != drawingSpace {
+            glyphSpace = drawingSpace
             green = Self.charset.compactMap { render($0, color(0x3CFF6E)) }
             white = Self.charset.compactMap { render($0, color(0xE2FFE8)) }
         }
@@ -951,7 +973,7 @@ final class MatrixScene: WallpaperScene {
     private func render(_ char: Character, _ c: CGColor) -> CGImage? {
         let px = Int(cell * 2)
         guard let ctx = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0,
-                                  space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                                  space: drawingSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         ctx.scaleBy(x: 2, y: 2)
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(cgContext: ctx, flipped: false)
@@ -2045,7 +2067,7 @@ final class TextScene: WallpaperScene {
     /// Kisi titik redup selebar Touch Bar, digambar sekali.
     private func makeGrid() -> CGImage? {
         guard let ctx = CGContext(data: nil, width: Int(w * 2), height: Int(h * 2), bitsPerComponent: 8, bytesPerRow: 0,
-                                  space: sRGB, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+                                  space: drawingSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
         ctx.scaleBy(x: 2, y: 2)
         ctx.setFillColor(color(0xFFFFFF, 0.07))
         for r in 0..<rows {
@@ -2255,17 +2277,24 @@ final class TextScene: WallpaperScene {
 
 // MARK: Cuaca hari ini
 
-/// Langit hitam putih yang mengikuti cuaca saat ini di lokasi MacBook: matahari atau bulan, awan, hujan, salju,
-/// kabut, atau petir, bergerak searah angin. Suhu dan nama kota tampil di kanan.
+/// Pemandangan hitam putih yang mengikuti cuaca dan waktu di lokasi MacBook: gunung berapi kembar berasap,
+/// bukit berlapis berkabut, sawah berundak, dan pohon kelapa. Matahari bergerak dari terbit ke terbenam sesuai
+/// jam aslinya (terbit dari balik lereng gunung, terbenam di atas sawah), bulan mengikuti fase dan posisinya, dan
+/// cahaya langit berubah halus dari malam, fajar, siang, sampai senja. Suhu dan nama kota tampil di kanan.
 ///
 /// Bisa dimainkan dengan menggeser jari: awan ikut terdorong, payung muncul menahan hujan, salju menyingkir,
-/// kabut tersapu, matahari/bulan bisa dipindah, dan saat badai kilat menyambar di bawah jari.
+/// kabut tersapu, matahari/bulan bisa digeser (lalu kembali ke tempatnya), dan saat badai kilat menyambar di bawah jari.
+///
+/// Lapisan pemandangan yang tidak bergerak digambar sekali ke gambar tersendiri dan hanya digambar ulang saat
+/// cahayanya berubah (beberapa menit sekali), jadi setiap frame cukup menempel gambar.
 final class WeatherScene: WallpaperScene {
-    override var frameRate: Double { 24 }
+    override var frameRate: Double { 20 }
 
     private struct Cloud {
         var x, y, scale: CGFloat
-        var puffs: [(dx: CGFloat, dy: CGFloat, r: CGFloat)]
+        var seed: Int
+        var image: CGImage?
+        var imageKey = -1
     }
 
     private struct Drop { var x, y, speed, length: CGFloat }
@@ -2273,36 +2302,61 @@ final class WeatherScene: WallpaperScene {
 
     /// Cuaca tetap untuk uji tampilan; nil = cuaca asli dari WeatherService.
     var override: Weather?
+    /// Waktu tetap untuk uji tampilan (lalu berjalan seperti biasa); nil = jam sekarang.
+    var overrideDate: Date?
 
     private var clouds: [Cloud] = []
     private var drops: [Drop] = []
     private var splashes: [(x: CGFloat, y: CGFloat, age: CGFloat)] = []
     private var flakes: [Flake] = []
-    private var stars: [CGPoint] = []
-    private var shown: (WeatherCondition, Bool)?
+    private var twinkles: [CGPoint] = []
+    private var shown: WeatherCondition?
     private var refreshClock: CGFloat = 0
     private var flash: CGFloat = 0
     private var bolt: [CGPoint] = []
     private var boltLife: CGFloat = 0
     private var nextStrike: CGFloat = 2
+    private var meteor: (start: CGPoint, age: CGFloat)?
+    private var nextMeteor: CGFloat = 6
 
-    private var bodyX: CGFloat = 0
-    /// Posisi matahari/bulan yang tampil: titik pilihan (bodyX) ditambah geseran pelan supaya tidak membekas di OLED.
-    private var bodyCenterX: CGFloat { bodyX + 50 * sin(time / 200) }
     private var touchX: CGFloat?
     private var lastTouchX: CGFloat = 0
     private var holdingBody = false
+    /// Geseran matahari/bulan oleh jari; kembali pelan-pelan ke 0 setelah dilepas.
+    private var bodyDrag: CGFloat = 0
     /// Bekas sapuan jari di kabut, perlahan tertutup lagi.
     private var fogHoles: [(x: CGFloat, life: CGFloat)] = []
 
     private let umbrellaRadius: CGFloat = 13
     private let umbrellaTop: CGFloat = 20
 
+    // Keadaan langit, dihitung ulang setiap detik.
+    private var skyClock: CGFloat = 0
+    private var sunPath: CGFloat?
+    private var moonPath: CGFloat?
+    private var moonPhase: CGFloat = 0
+    /// Cahaya: 0 = malam, 0,5 = fajar/senja, 1 = siang.
+    private var light: CGFloat = 0
+    /// Matahari sedang terbit (true) atau terbenam (false), untuk arah sinar dan kabut pagi.
+    private var morning = true
+
+    // Lapisan yang digambar sekali. Hanya dua gambar selebar Touch Bar yang ditempel setiap frame: langit (dengan
+    // bintang, tanpa transparansi sehingga paling cepat) dan seluruh pemandangan; matahari, bulan, dan awan di antaranya.
+    private var layerKey = -1
+    private var skyLayer: CGImage?
+    private var landscape: CGImage?
+    private var flashLandscape: (image: CGImage?, key: Int) = (nil, -1)
+    private var starLayer: CGImage?
+
+    private var volcanoX: CGFloat { w * 0.22 }
+    private let palms: [(x: CGFloat, height: CGFloat, lean: CGFloat)] = [(16, 22, 4), (42, 17, -3), (68, 13, 2)]
+
     private var weather: Weather? { override ?? WeatherService.shared.current }
     private var condition: WeatherCondition { weather?.condition ?? .clear }
-    private var isDay: Bool { weather?.isDay ?? false }
-    private var showsBody: Bool { [.clear, .partlyCloudy, .snow, .fog].contains(condition) }
+    private var now: Date { overrideDate.map { $0.addingTimeInterval(Double(time)) } ?? Date() }
+    private var clearSky: Bool { condition == .clear || condition == .partlyCloudy }
     private var isRainy: Bool { [.drizzle, .rain, .heavyRain, .thunder].contains(condition) }
+    private var murky: Bool { isRainy || condition == .fog || condition == .cloudy || condition == .snow }
 
     /// Angin dalam pt/detik ke kanan (+) atau kiri (−). Arah angin = arah datangnya, jadi angin dari barat bertiup ke kanan.
     private var wind: CGFloat {
@@ -2312,23 +2366,227 @@ final class WeatherScene: WallpaperScene {
         return direction * (4 + CGFloat(min(weather.windSpeed, 60)) * 0.8)
     }
 
+    // MARK: Langit
+
+    /// Titik di lintasan matahari/bulan: terbit di kiri, melengkung naik, terbenam di kanan (sebelum info cuaca).
+    private func pathPoint(_ p: CGFloat) -> CGPoint {
+        CGPoint(x: 150 + p * (w - 330), y: 7 + sin(p * .pi) * 19)
+    }
+
+    private func updateSky() {
+        let times = weather?.sunTimes ?? []
+        let sun = Sky.sun(at: now, times: times)
+        sunPath = sun.day.map { CGFloat($0) }
+        moonPath = Sky.moon(at: now, times: times).map { CGFloat($0) }
+        moonPhase = CGFloat(Sky.moonPhase(at: now))
+        if let p = sunPath {
+            let height = sin(p * .pi)
+            light = 0.5 + 0.5 * smooth(max(0, min(1, (height - 0.08) / 0.37)))
+            morning = p < 0.5
+        } else {
+            // Senja dan fajar berlanjut sedikit ke malam (sekitar setengah jam), lalu gelap.
+            let edge = min(sun.night, 1 - sun.night)
+            light = 0.5 * max(0, 1 - CGFloat(edge) / 0.05)
+            morning = sun.night > 0.5
+        }
+    }
+
+    private func smooth(_ t: CGFloat) -> CGFloat { t * t * (3 - 2 * t) }
+
+    /// Seberapa terang bulan menerangi malam (0–1): bulan di atas ufuk dan dekat purnama.
+    private var moonlight: CGFloat {
+        guard moonPath != nil, clearSky else { return 0 }
+        return 1 - abs(moonPhase - 0.5) * 2
+    }
+
+    /// Kecerahan (abu-abu 0–1): langit atas, ufuk, pegunungan belakang, gunung, bukit tengah, bukit depan.
+    private func palette() -> [CGFloat] {
+        let night: [CGFloat] = [0, 0.05 + 0.1 * moonlight, 0.05, 0.03, 0.02, 0.01]
+        let low: [CGFloat] = murky ? [0.1, 0.34, 0.22, 0.17, 0.11, 0.06] : [0.1, 0.62, 0.3, 0.16, 0.1, 0.05]
+        let day: [CGFloat] = murky ? [0.18, 0.34, 0.29, 0.26, 0.18, 0.1] : [0.2, 0.5, 0.4, 0.34, 0.22, 0.11]
+        func mix(_ a: [CGFloat], _ b: [CGFloat], _ t: CGFloat) -> [CGFloat] { zip(a, b).map { $0 + ($1 - $0) * t } }
+        return light < 0.5 ? mix(night, low, light / 0.5) : mix(low, day, (light - 0.5) / 0.5)
+    }
+
+    // MARK: Pemandangan
+
+    private static func noise(_ x: CGFloat, _ seed: Int) -> CGFloat {
+        let i = Int(floor(x)), f = x - floor(x), u = f * f * (3 - 2 * f)
+        return hash(i * 131 + seed) * (1 - u) + hash((i + 1) * 131 + seed) * u
+    }
+
+    private static func ridge(_ x: CGFloat, _ seed: Int, _ scale: CGFloat) -> CGFloat {
+        noise(x / scale, seed) * 0.6 + noise(x / scale * 2.3, seed + 7) * 0.28 + noise(x / scale * 5.1, seed + 13) * 0.12
+    }
+
+    /// Profil gunung berapi: lereng cekung yang makin curam ke puncak, kawah di atas, dan alur di lereng.
+    private static func volcano(_ x: CGFloat, center: CGFloat, height: CGFloat, base: CGFloat, width: CGFloat) -> CGFloat {
+        let d = abs(x - center) / width
+        guard d < 1 else { return base }
+        var y = base + height * pow(1 - d, 2.4)
+        if d < 0.035 { y -= 1.6 * (1 - d / 0.035) }
+        y += (ridge(x, 91, 9) - 0.5) * 1.2 * (1 - d)
+        return y
+    }
+
+    private func makeLayer(opaque: Bool = false, _ draw: (CGContext) -> Void) -> CGImage? {
+        let alpha: CGImageAlphaInfo = opaque ? .noneSkipLast : .premultipliedLast
+        guard let ctx = CGContext(data: nil, width: Int(w * 2), height: Int(h * 2), bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: drawingSpace, bitmapInfo: alpha.rawValue) else { return nil }
+        ctx.scaleBy(x: 2, y: 2)
+        draw(ctx)
+        return ctx.makeImage()
+    }
+
+    private func drawBack(_ ctx: CGContext, _ pal: [CGFloat], flash: CGFloat) {
+        let gray = { (v: CGFloat) in CGColor(gray: min(1, v), alpha: 1) }
+        ctx.fillTerrain(gray(pal[2] + flash * 0.22), width: w, step: 2) { x in 10 + Self.ridge(x, 3, 80) * 6 }
+        ctx.fillTerrain(gray(pal[3] * 1.15 + flash * 0.27), width: w, step: 2) { x in
+            Self.volcano(x, center: self.volcanoX + 170, height: 17, base: 3, width: 160)
+        }
+        ctx.fillTerrain(gray(pal[3] + flash * 0.3), width: w, step: 2) { x in
+            Self.volcano(x, center: self.volcanoX, height: 25.5, base: 2, width: 240)
+        }
+    }
+
+    private func drawFront(_ ctx: CGContext, _ pal: [CGFloat], flash: CGFloat) {
+        let gray = { (v: CGFloat) in CGColor(gray: min(1, v), alpha: 1) }
+        let fog: CGFloat = condition == .fog ? 0.5 : (light > 0.3 && light < 0.75 && morning ? 0.3 : 0.12)
+        let haze = { (y: CGFloat, height: CGFloat, alpha: CGFloat) in
+            ctx.verticalGradient([CGColor(gray: 1, alpha: 0), CGColor(gray: 1, alpha: alpha * (0.3 + 0.7 * min(1, self.light * 2)))],
+                                 CGRect(x: 0, y: y, width: self.w, height: height))
+        }
+        haze(4, 7, fog)
+        ctx.fillTerrain(gray(pal[4] + flash * 0.16), width: w, step: 2) { x in 5.5 + Self.ridge(x, 11, 36) * 5 }
+        haze(2.5, 4, fog * 0.6)
+        ctx.fillTerrain(gray(pal[5] + flash * 0.08), width: w, step: 2) { x in 3.2 + Self.ridge(x, 17, 22) * 3 }
+        // Sawah berundak: genangan tipis yang memantulkan langit.
+        for i in 0..<3 {
+            ctx.fill(gray(pal[1] * (0.55 - CGFloat(i) * 0.12)), CGRect(x: 0, y: CGFloat(i) * 1.3 + 0.3, width: w, height: 0.6))
+        }
+        // Pohon kelapa di tepi kiri.
+        ctx.setStrokeColor(CGColor(gray: 0, alpha: 1))
+        ctx.setLineCap(.round)
+        for palm in palms {
+            let tip = CGPoint(x: palm.x + palm.lean, y: palm.height)
+            ctx.setLineWidth(1.4)
+            ctx.beginPath()
+            ctx.move(to: CGPoint(x: palm.x, y: 0))
+            ctx.addQuadCurve(to: tip, control: CGPoint(x: palm.x + palm.lean * 0.2, y: palm.height * 0.6))
+            ctx.strokePath()
+            ctx.setLineWidth(0.9)
+            for f in 0..<7 {
+                let a = CGFloat(f) / 6 * .pi, len = 8 + hash(f + Int(palm.x)) * 3
+                ctx.beginPath()
+                ctx.move(to: tip)
+                ctx.addQuadCurve(to: CGPoint(x: tip.x + cos(a) * len, y: tip.y + sin(a) * len * 0.35 - 2.5),
+                                 control: CGPoint(x: tip.x + cos(a) * len * 0.5, y: tip.y + sin(a) * len * 0.5 + 0.8))
+                ctx.strokePath()
+            }
+        }
+    }
+
+    /// Asap tipis dari kawah, condong searah angin.
+    private func drawSmoke(_ ctx: CGContext) {
+        let side: CGFloat = wind >= 0 ? 1 : -1
+        let bright: CGFloat = 0.3 + 0.6 * min(1, light * 1.4)
+        for k in 0..<12 {
+            let t = CGFloat(k) / 12
+            ctx.blob(CGColor(gray: bright, alpha: (0.1 + 0.18 * min(1, light * 1.4)) * (1 - t * 0.8)),
+                     CGPoint(x: volcanoX + side * (3 + t * 120), y: 27.5 + t * 2.5 + sin(t * 6) * 0.6), 4 + t * 16, 1.6 + t * 2.4)
+        }
+    }
+
+    /// Gambar ulang langit dan pemandangan kalau cahayanya sudah berubah cukup jauh (beberapa menit sekali).
+    private func refreshLayers() {
+        let key = Int(light * 20) * 10000 + Int(moonlight * 4) * 1000 + (clearSky ? 100 : 0) + (murky ? 10 : 0)
+            + (condition == .fog ? 1 : 0) + (wind >= 0 ? 2 : 0) + (condition == .thunder ? 4 : 0)
+        guard key != layerKey else { return }
+        layerKey = key
+        let pal = palette()
+        let darkness = max(0, 1 - light * 2.5)
+        skyLayer = makeLayer(opaque: true) { ctx in
+            ctx.verticalGradient([CGColor(gray: pal[0], alpha: 1), CGColor(gray: pal[1] * 0.8, alpha: 1), CGColor(gray: pal[1], alpha: 1)],
+                                 CGRect(x: 0, y: 0, width: self.w, height: self.h))
+            if darkness > 0, self.clearSky, let stars = self.starLayer {
+                ctx.setAlpha(darkness * (1 - 0.5 * self.moonlight))
+                ctx.draw(stars, in: self.bounds)
+            }
+        }
+        landscape = makeLayer { ctx in
+            drawBack(ctx, pal, flash: 0)
+            if condition != .thunder { drawSmoke(ctx) }
+            drawFront(ctx, pal, flash: 0)
+        }
+        for i in clouds.indices { clouds[i].imageKey = -1 }
+    }
+
+    private func flashImage() -> CGImage? {
+        if flashLandscape.key != layerKey {
+            let pal = palette()
+            flashLandscape = (makeLayer { ctx in
+                self.drawBack(ctx, pal, flash: 1)
+                self.drawFront(ctx, pal, flash: 1)
+            }, layerKey)
+        }
+        return flashLandscape.image
+    }
+
+    private func makeStarLayer() -> CGImage? {
+        makeLayer { ctx in
+            for k in 0..<260 {
+                let p = CGPoint(x: hash(k) * w, y: 7 + hash(k + 500) * (h - 7))
+                ctx.fillEllipse(color(0xFFFFFF, 0.25 + 0.6 * hash(k + 900)), p, 0.3 + hash(k + 77) * 0.4, 0.3 + hash(k + 77) * 0.4)
+            }
+            // Bima Sakti: awan titik halus yang menyilang miring.
+            ctx.setBlendMode(.screen)
+            for k in 0..<2200 {
+                let t = hash(k + 2000), spread = (hash(k + 3000) - 0.5) * (5 + 6 * sin(t * .pi))
+                ctx.fillEllipse(color(0xFFFFFF, 0.05 + 0.12 * hash(k + 4000)), CGPoint(x: w * 0.35 + t * 640, y: 31 - t * 20 + spread), 0.28, 0.28)
+            }
+            ctx.glow(color(0xFFFFFF, 0.06), CGPoint(x: w * 0.35 + 270, y: 23), 150)
+        }
+    }
+
+    /// Awan berlapis yang lembut, digambar sekali per awan dan per perubahan cahaya.
+    private func cloudImage(_ cloud: Cloud) -> CGImage? {
+        let heavy = isRainy || condition == .cloudy
+        let tone: CGFloat = heavy ? 0.35 + 0.3 * light : (light < 0.5 ? 0.3 + light * 0.9 : 0.95)
+        let alpha: CGFloat = heavy ? 0.35 : (light < 0.25 ? 0.1 : 0.2)
+        let size = CGSize(width: 150 * cloud.scale, height: 14)
+        guard let ctx = CGContext(data: nil, width: Int(size.width * 2), height: Int(size.height * 2), bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: drawingSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.scaleBy(x: 2, y: 2)
+        for j in 0..<5 {
+            let px = size.width / 2 + (hash(cloud.seed * 10 + j) - 0.5) * 70 * cloud.scale
+            let py = size.height / 2 + (hash(cloud.seed * 10 + j + 5) - 0.5) * 2.5
+            ctx.blob(CGColor(gray: tone, alpha: alpha), CGPoint(x: px, y: py),
+                     (22 + hash(cloud.seed * 10 + j + 9) * 18) * cloud.scale, 3 + hash(cloud.seed * 10 + j + 3) * 2)
+        }
+        return ctx.makeImage()
+    }
+
+    // MARK: Isi adegan
+
     override func layout() {
-        stars = (0..<80).map { _ in CGPoint(x: rnd(0, w), y: rnd(6, h - 1)) }
-        bodyX = w * 0.16
+        twinkles = (0..<25).map { _ in CGPoint(x: rnd(0, w), y: rnd(9, h - 1)) }
+        starLayer = makeStarLayer()
+        layerKey = -1
+        updateSky()
         rebuild()
     }
 
     private func rebuild() {
-        shown = (condition, isDay)
+        shown = condition
         let cloudCount: Int
         switch condition {
-        case .clear: cloudCount = 1
+        case .clear: cloudCount = 3
         case .partlyCloudy: cloudCount = Int(w / 160)
         case .fog: cloudCount = 0
         case .snow: cloudCount = Int(w / 110)
         case .cloudy, .drizzle, .rain, .heavyRain, .thunder: cloudCount = Int(w / 70)
         }
-        clouds = (0..<cloudCount).map { _ in newCloud(x: rnd(-40, w + 40)) }
+        clouds = (0..<cloudCount).map { _ in newCloud(x: rnd(-60, w + 60)) }
 
         let dropCount: Int
         switch condition {
@@ -2339,13 +2597,12 @@ final class WeatherScene: WallpaperScene {
         }
         drops = (0..<dropCount).map { _ in newDrop(anywhere: true) }
         flakes = condition == .snow ? (0..<Int(w / 7)).map { _ in newFlake(anywhere: true) } : []
+        layerKey = -1
     }
 
     private func newCloud(x: CGFloat) -> Cloud {
-        let scale = rnd(0.6, 1.25)
-        let puffs = (0..<Int.random(in: 4...7)).map { _ in (dx: rnd(-14, 14), dy: rnd(-2, 3), r: rnd(4, 8)) }
-        let heavy = [.rain, .heavyRain, .thunder, .cloudy, .drizzle].contains(condition)
-        return Cloud(x: x, y: heavy ? rnd(h - 8, h + 2) : rnd(12, h - 4), scale: scale, puffs: puffs)
+        let heavy = isRainy || condition == .cloudy
+        return Cloud(x: x, y: heavy ? rnd(h - 7, h + 1) : rnd(20, h - 2), scale: rnd(0.6, 1.25), seed: Int.random(in: 0..<10_000))
     }
 
     private func newDrop(anywhere: Bool) -> Drop {
@@ -2369,6 +2626,19 @@ final class WeatherScene: WallpaperScene {
         }
     }
 
+    /// Matahari atau bulan yang sedang tampil, dan posisinya (termasuk geseran jari).
+    private var body: (isSun: Bool, point: CGPoint)? {
+        if let p = sunPath {
+            let point = pathPoint(p)
+            return (true, CGPoint(x: point.x + bodyDrag, y: point.y))
+        }
+        if let p = moonPath, clearSky || condition == .fog || condition == .snow {
+            let point = pathPoint(p)
+            return (false, CGPoint(x: point.x + bodyDrag, y: point.y))
+        }
+        return nil
+    }
+
     // MARK: Sentuhan
 
     override var isInteractive: Bool { true }
@@ -2376,7 +2646,7 @@ final class WeatherScene: WallpaperScene {
     override func touchBegan(at x: CGFloat) {
         touchX = x
         lastTouchX = x
-        holdingBody = showsBody && abs(x - bodyCenterX) < 30
+        holdingBody = body.map { abs(x - $0.point.x) < 30 } ?? false
         if condition == .thunder { strike(at: x) }
     }
 
@@ -2384,9 +2654,9 @@ final class WeatherScene: WallpaperScene {
         let dx = x - lastTouchX
         lastTouchX = x
         touchX = x
-        if holdingBody { bodyX = max(12, min(w - 160, x)) - (bodyCenterX - bodyX) }
+        if holdingBody { bodyDrag += dx }
         // Awan di dekat jari ikut terdorong.
-        for i in clouds.indices where abs(clouds[i].x - x) < 45 { clouds[i].x += dx * 0.8 }
+        for i in clouds.indices where abs(clouds[i].x - x) < 60 { clouds[i].x += dx * 0.8 }
         if condition == .fog { fogHoles.append((x, 1)) }
     }
 
@@ -2410,13 +2680,19 @@ final class WeatherScene: WallpaperScene {
             refreshClock = 30
             WeatherService.shared.refreshIfNeeded()
         }
-        if let shown, shown.0 != condition || shown.1 != isDay { rebuild() }
+        if shown != condition { rebuild() }
+        skyClock -= dt
+        if skyClock <= 0 {
+            skyClock = 1
+            updateSky()
+        }
+        if !holdingBody { bodyDrag *= pow(0.25, dt) }
 
         let wind = self.wind
         for i in clouds.indices {
             clouds[i].x += wind * (0.5 + clouds[i].scale * 0.4) * dt
-            if clouds[i].x > w + 50 { clouds[i] = newCloud(x: -50) }
-            if clouds[i].x < -50 { clouds[i] = newCloud(x: w + 50) }
+            if clouds[i].x > w + 90 { clouds[i] = newCloud(x: -90) }
+            if clouds[i].x < -90 { clouds[i] = newCloud(x: w + 90) }
         }
         for i in drops.indices {
             drops[i].y -= drops[i].speed * dt
@@ -2452,7 +2728,17 @@ final class WeatherScene: WallpaperScene {
             nextStrike -= dt
             if nextStrike <= 0 {
                 nextStrike = rnd(4, 10)
-                strike(at: rnd(80, w * 0.7))
+                strike(at: rnd(volcanoX + 60, w * 0.75))
+            }
+        }
+        // Sesekali bintang jatuh di malam yang cerah.
+        if let m = meteor {
+            meteor = m.age > 0.7 ? nil : (m.start, m.age + dt)
+        } else if light < 0.2, clearSky {
+            nextMeteor -= dt
+            if nextMeteor <= 0 {
+                nextMeteor = rnd(8, 20)
+                meteor = (CGPoint(x: rnd(w * 0.3, w - 220), y: rnd(25, 30)), 0)
             }
         }
     }
@@ -2460,31 +2746,76 @@ final class WeatherScene: WallpaperScene {
     // MARK: Gambar
 
     override func draw(_ ctx: CGContext) {
+        refreshLayers()
         let c = condition
-        let sky: [UInt32] = isDay ? [0x111111, 0x262626] : [0x000000, 0x0A0A0A]
-        ctx.verticalGradient(sky.map { color($0) }, bounds)
-        if flash > 0 { ctx.fill(color(0xFFFFFF, 0.35 * flash), bounds) }
 
-        let clearSky = c == .clear || c == .partlyCloudy
-        if !isDay, clearSky {
-            for (i, star) in stars.enumerated() {
+        // 1. Langit dengan bintang dan Bima Sakti (satu gambar).
+        if let skyLayer { ctx.draw(skyLayer, in: bounds) }
+        if flash > 0 { ctx.fill(color(0xFFFFFF, 0.3 * flash), bounds) }
+
+        // 2. Bintang yang berkelip dan bintang jatuh.
+        let darkness = max(0, 1 - light * 2.5)
+        if darkness > 0, clearSky {
+            for (i, star) in twinkles.enumerated() {
                 // Bintang di dekat jari berkelip lebih terang.
                 let near = touchX.map { max(0, 1 - abs(star.x - $0) / 70) } ?? 0
-                let alpha = 0.3 + 0.3 * sin(time * 1.7 + CGFloat(i)) + 0.7 * near
-                if near > 0.3 { ctx.glow(color(0xFFFFFF, 0.5 * near), star, 2 + 3 * near) }
-                ctx.fill(color(0xFFFFFF, min(1, alpha)), CGRect(x: star.x - near * 0.6, y: star.y - near * 0.6, width: 0.8 + 1.2 * near, height: 0.8 + 1.2 * near))
+                let a = darkness * min(1, 0.3 + 0.4 * sin(time * 1.7 + CGFloat(i)) + 0.7 * near)
+                if near > 0.3 { ctx.glow(color(0xFFFFFF, 0.5 * near * darkness), star, 2 + 3 * near) }
+                ctx.fill(color(0xFFFFFF, max(0, a)), CGRect(x: star.x - near * 0.6, y: star.y - near * 0.6, width: 0.8 + 1.2 * near, height: 0.8 + 1.2 * near))
             }
-        }
-        if showsBody { drawBody(ctx, faded: c == .fog) }
-
-        let cloudColor = isRainy || c == .cloudy ? color(0x9A9A9A, isDay ? 0.32 : 0.22) : color(0xFFFFFF, isDay ? 0.24 : 0.14)
-        for cloud in clouds {
-            for p in cloud.puffs {
-                ctx.fillEllipse(cloudColor, CGPoint(x: cloud.x + p.dx * cloud.scale, y: cloud.y + p.dy * cloud.scale),
-                                p.r * cloud.scale * 1.4, p.r * cloud.scale)
+            if let m = meteor {
+                let t = m.age / 0.7, head = CGPoint(x: m.start.x + t * 50, y: m.start.y - t * 10)
+                ctx.line(color(0xFFFFFF, darkness * (1 - t) * 0.5), 0.6, [CGPoint(x: head.x - 18, y: head.y + 3.6), head])
+                ctx.line(color(0xFFFFFF, darkness * (1 - t)), 0.7, [CGPoint(x: head.x - 6, y: head.y + 1.2), head])
             }
         }
 
+        // 3. Matahari atau bulan (di belakang gunung).
+        if let body { drawBody(ctx, body, faded: !clearSky) }
+
+        // 4. Awan.
+        for i in clouds.indices {
+            let key = layerKey * 3 + (isRainy ? 1 : 0)
+            if clouds[i].imageKey != key {
+                clouds[i].image = cloudImage(clouds[i])
+                clouds[i].imageKey = key
+            }
+            if let image = clouds[i].image {
+                ctx.draw(image, in: CGRect(x: clouds[i].x - CGFloat(image.width) / 4, y: clouds[i].y - 7,
+                                           width: CGFloat(image.width) / 2, height: CGFloat(image.height) / 2))
+            }
+        }
+
+        // 5. Pemandangan (dengan versi terang sesaat saat kilat).
+        if let landscape { ctx.draw(landscape, in: bounds) }
+        if flash > 0.02, let lit = flashImage() {
+            ctx.saveGState()
+            ctx.setAlpha(flash)
+            ctx.draw(lit, in: bounds)
+            ctx.restoreGState()
+        }
+
+        // 6. Pantulan matahari/bulan di genangan sawah.
+        if let body, clearSky {
+            let strength: CGFloat = body.isSun ? 0.15 + 0.25 * (1 - sin((sunPath ?? 0.5) * .pi)) : 0.35 * moonlight
+            for i in 0..<10 {
+                let width = 6 + hash(i + 40) * 10
+                ctx.fill(color(0xFFFFFF, strength * (1 - CGFloat(i) / 10)),
+                         CGRect(x: body.point.x - width / 2 + (hash(i + 60) - 0.5) * 6 + sin(time * 2 + CGFloat(i)) * 0.8,
+                                y: 3.6 - CGFloat(i) * 0.36, width: width, height: 0.3))
+            }
+        }
+
+        // 7. Burung pulang saat senja.
+        if clearSky, !morning, light > 0.3, light < 0.85 {
+            let bx = wrap(time * 12, w + 200) - 100
+            for k in 0..<6 {
+                let x = bx + CGFloat(k) * 7, y = 19 + CGFloat(k % 2) * 2 + sin(CGFloat(k)) * 1.5, flap = sin(time * 9 + CGFloat(k)) * 0.8
+                ctx.line(color(0x101010), 0.6, [CGPoint(x: x - 2, y: y + flap), CGPoint(x: x, y: y), CGPoint(x: x + 2, y: y + flap)])
+            }
+        }
+
+        // 8. Cuaca.
         if boltLife > 0 {
             let a = boltLife / 0.25
             ctx.line(color(0xFFFFFF, 0.35 * a), 3, bolt)
@@ -2513,27 +2844,56 @@ final class WeatherScene: WallpaperScene {
         drawInfo(ctx)
     }
 
-    private func drawBody(_ ctx: CGContext, faded: Bool) {
-        let body = CGPoint(x: bodyCenterX, y: 17)
-        let strength: CGFloat = faded ? 0.35 : 1
+    private func drawBody(_ ctx: CGContext, _ body: (isSun: Bool, point: CGPoint), faded: Bool) {
+        let p = body.point
         let held: CGFloat = holdingBody ? 1 : 0
-        if isDay {
-            ctx.glow(color(0xFFFFFF, 0.22 * strength + 0.1 * held), body, 30 + 6 * held)
-            ctx.saveGState()
-            ctx.translateBy(x: body.x, y: body.y)
-            ctx.rotate(by: time * (0.15 + 0.6 * held))
-            for k in 0..<12 {
-                let a = CGFloat(k) * .pi / 6
-                let outer: CGFloat = 13 + 2 * held
-                ctx.line(color(0xFFFFFF, 0.6 * strength), 1.2, [CGPoint(x: cos(a) * 9.5, y: sin(a) * 9.5), CGPoint(x: cos(a) * outer, y: sin(a) * outer)])
+        if body.isSun {
+            let low = 1 - sin((sunPath ?? 0.5) * .pi)
+            if faded {
+                ctx.glow(color(0xFFFFFF, 0.12), p, 80)
+                return
             }
-            ctx.restoreGState()
-            ctx.fillEllipse(color(0xFFFFFF, strength), body, 7, 7)
-        } else {
-            ctx.glow(color(0xFFFFFF, 0.18 + 0.12 * held), body, 16 + 4 * held)
-            ctx.fillEllipse(color(0xFFFFFF, 0.95 * strength), body, 5.5, 5.5)
-            ctx.fillEllipse(color(0x050505), CGPoint(x: body.x + 2.5, y: body.y + 1.5), 4.6, 4.6)
+            ctx.glow(color(0xFFFFFF, 0.25 + 0.3 * low + 0.1 * held), p, 90 + 80 * low)
+            // Berkas cahaya saat matahari rendah, menyebar ke arah langit.
+            if low > 0.55 {
+                ctx.saveGState()
+                ctx.setBlendMode(.screen)
+                let base: CGFloat = morning ? 0.12 : .pi - 0.12
+                for k in 0..<14 {
+                    let a = base + (CGFloat(k) - 7) * 0.05 + (hash(k + 50) - 0.5) * 0.03
+                    ctx.setFillColor(color(0xFFFFFF, (0.045 + 0.04 * hash(k + 60)) * (low - 0.55) / 0.45))
+                    ctx.beginPath()
+                    ctx.move(to: p)
+                    ctx.addLine(to: CGPoint(x: p.x + cos(a) * 900, y: p.y + sin(a) * 900))
+                    ctx.addLine(to: CGPoint(x: p.x + cos(a + 0.018) * 900, y: p.y + sin(a + 0.018) * 900))
+                    ctx.closePath()
+                    ctx.fillPath()
+                }
+                ctx.restoreGState()
+            }
+            ctx.fillEllipse(color(0xFFFFFF), p, 5.5 + held, 5.5 + held)
+            return
         }
+        // Bulan sesuai fase: lingkaran redup, lalu bagian terang dibatasi garis terminator berbentuk elips.
+        let r: CGFloat = 4.8
+        let full = 1 - abs(moonPhase - 0.5) * 2
+        let daytime = light > 0.5
+        let strength: CGFloat = faded ? 0.4 : (daytime ? 0.45 : 1)
+        if !daytime { ctx.glow(color(0xFFFFFF, (0.12 + 0.3 * full + 0.1 * held) * strength), p, 25 + 35 * full) }
+        ctx.fillEllipse(color(daytime ? 0x9A9A9A : 0x1A1A1A, daytime ? 0.25 : 1), p, r, r)
+        ctx.saveGState()
+        ctx.addEllipse(in: CGRect(x: p.x - r, y: p.y - r, width: r * 2, height: r * 2))
+        ctx.clip()
+        let waxing = moonPhase < 0.5
+        let k = cos(moonPhase * 2 * .pi)
+        ctx.setFillColor(color(0xF5F5F5, strength))
+        ctx.beginPath()
+        ctx.addArc(center: p, radius: r, startAngle: -.pi / 2, endAngle: .pi / 2, clockwise: !waxing)
+        let cx = p.x + (waxing ? 1 : -1) * k * r * 1.33
+        ctx.addCurve(to: CGPoint(x: p.x, y: p.y - r), control1: CGPoint(x: cx, y: p.y + r), control2: CGPoint(x: cx, y: p.y - r))
+        ctx.closePath()
+        ctx.fillPath()
+        ctx.restoreGState()
     }
 
     private func drawUmbrella(_ ctx: CGContext, at x: CGFloat) {
@@ -2617,12 +2977,20 @@ enum WallpaperRenderer {
         let size = CGSize(width: 1004, height: 30), gap: CGFloat = 4
         let scene = theme == .text && text != nil ? TextScene(text: text!) : theme.makeScene()
         // Untuk tema cuaca, `text` berisi "kode,siang(1/0),suhu,angin km/jam,arah angin,kota", misalnya "61,1,27,12,270,Yogyakarta".
+        // Jam terbit/terbenamnya diperkirakan 06:00–18:00.
         // Tambahan ",geser=awal-akhir" mensimulasikan jari yang menggeser dari x awal ke x akhir selama frame dirender.
         var drag: (from: CGFloat, to: CGFloat)?
         if let weatherScene = scene as? WeatherScene, let parts = text?.components(separatedBy: ","), parts.count >= 5 {
             weatherScene.override = Weather(code: Int(parts[0]) ?? 0, isDay: parts[1] == "1", temperature: Double(parts[2]) ?? 0,
                                             windSpeed: Double(parts[3]) ?? 0, windDirection: Double(parts[4]) ?? 0,
                                             place: parts.count > 5 ? parts[5] : nil)
+            // ",jam=2026-11-24T19:30" = waktu tetap (jam lokal) untuk posisi matahari, bulan, dan fasenya.
+            if let stamp = parts.first(where: { $0.hasPrefix("jam=") })?.dropFirst(4) {
+                let format = DateFormatter()
+                format.locale = Locale(identifier: "en_US_POSIX")
+                format.dateFormat = "yyyy-MM-dd'T'HH:mm"
+                weatherScene.overrideDate = format.date(from: String(stamp))
+            }
             if let spec = parts.first(where: { $0.hasPrefix("geser=") })?.dropFirst(6).split(separator: "-"), spec.count == 2,
                let from = Double(spec[0]), let to = Double(spec[1]) {
                 drag = (CGFloat(from), CGFloat(to))
@@ -2708,6 +3076,18 @@ final class WallpaperView: NSView {
 
     override var isOpaque: Bool { true }
 
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        updateDrawingSpace()
+    }
+
+    /// Ikuti ruang warna jendela Touch Bar; kalau berubah, kanvas adegan dibuat ulang dalam ruang warna itu.
+    private func updateDrawingSpace() {
+        guard let space = window?.colorSpace?.cgColorSpace, space != drawingSpace else { return }
+        drawingSpace = space
+        scene?.relayout()
+    }
+
     func start() {
         guard timer == nil else { return }
         lastFrame = nil
@@ -2754,6 +3134,7 @@ final class WallpaperView: NSView {
         ctx.setFillColor(.black)
         ctx.fill(bounds)
         guard let scene else { return }
+        updateDrawingSpace()
         scene.resize(bounds.size)
         ctx.saveGState()
         ctx.clip(to: bounds)

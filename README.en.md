@@ -75,7 +75,7 @@ When nothing is playing and your Mac has been idle for a while, the Touch Bar sh
 <sub><i>Your own text: your name or initials in black-and-white dot-matrix letters</i></sub>
 
 <img src="docs/wallpapers/weather-en.gif" alt="Weather wallpaper: rain with an umbrella that follows your finger" width="100%">
-<sub><i>Today's weather where you are. Slide a finger: an umbrella in the rain, clouds you can push, fog you can wipe away, a sun you can move</i></sub>
+<sub><i>Today's weather where you are, over a landscape of volcanoes, rice terraces, and palm trees. The sun follows the real sunrise and sunset times, and the moon shows its real phase. Slide a finger: an umbrella in the rain, clouds you can push, fog you can wipe away, a sun you can nudge</i></sub>
 
 <img src="docs/wallpapers/dino.gif" alt="Dino runner wallpaper" width="100%">
 <sub><i>Dino runner: runs into the middle of the bar, then jumps small and large cacti. From a score of 450, birds show up: jump the low ones, duck under the middle ones, let the high ones fly by</i></sub>

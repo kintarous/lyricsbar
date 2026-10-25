@@ -46,8 +46,55 @@ struct Weather {
     var windDirection: Double // derajat, arah datangnya angin
     var place: String?
     var fetchedAt = Date()
+    /// Jam terbit dan terbenam kemarin, hari ini, dan besok di lokasi itu (kosong = perkiraan 06:00–18:00).
+    var sunTimes: [(rise: Date, set: Date)] = []
 
     var condition: WeatherCondition { WeatherCondition(code: code) }
+}
+
+/// Posisi matahari dan bulan di langit, cukup untuk wallpaper: seberapa jauh perjalanannya dari terbit ke
+/// terbenam (0–1), dan fase bulan.
+enum Sky {
+    /// Fase bulan dari tanggal: 0 = bulan baru, 0,25 = separuh (membesar), 0,5 = purnama, 0,75 = separuh (mengecil).
+    /// Satu siklus 29,53 hari, dihitung dari bulan baru 6 Januari 2000 pukul 18.14 UTC.
+    static func moonPhase(at date: Date) -> Double {
+        let days = date.timeIntervalSince(Date(timeIntervalSince1970: 947_182_440)) / 86_400
+        let phase = (days / 29.530_588_853).truncatingRemainder(dividingBy: 1)
+        return phase < 0 ? phase + 1 : phase
+    }
+
+    /// Perjalanan matahari: 0–1 dari terbit ke terbenam, atau nil saat malam (dengan kemajuan malam 0–1).
+    static func sun(at date: Date, times: [(rise: Date, set: Date)]) -> (day: Double?, night: Double) {
+        let days = times.isEmpty ? estimatedTimes(around: date) : times
+        for (i, d) in days.enumerated() {
+            if date >= d.rise && date <= d.set {
+                return (date.timeIntervalSince(d.rise) / d.set.timeIntervalSince(d.rise), 0)
+            }
+            if i + 1 < days.count, date > d.set, date < days[i + 1].rise {
+                return (nil, date.timeIntervalSince(d.set) / days[i + 1].rise.timeIntervalSince(d.set))
+            }
+        }
+        // Di luar rentang data (data lama): pakai jam yang sama pada hari ini.
+        return sun(at: date, times: estimatedTimes(around: date, like: days.first))
+    }
+
+    /// Perjalanan bulan di atas ufuk (0–1), atau nil kalau bulan sedang di bawah ufuk. Bulan terbit kira-kira
+    /// fase × 24,8 jam setelah matahari: purnama terbit saat matahari terbenam, bulan baru bersama matahari.
+    static func moon(at date: Date, times: [(rise: Date, set: Date)]) -> Double? {
+        let lag = moonPhase(at: date) * 24.84 * 3600
+        return sun(at: date.addingTimeInterval(-lag), times: times).day
+    }
+
+    private static func estimatedTimes(around date: Date, like sample: (rise: Date, set: Date)? = nil) -> [(rise: Date, set: Date)] {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: date)
+        let riseOffset = sample.map { $0.rise.timeIntervalSince(calendar.startOfDay(for: $0.rise)) } ?? 6 * 3600
+        let setOffset = sample.map { $0.set.timeIntervalSince(calendar.startOfDay(for: $0.rise)) } ?? 18 * 3600
+        return (-1...1).map { day in
+            let base = start.addingTimeInterval(Double(day) * 86_400)
+            return (base.addingTimeInterval(riseOffset), base.addingTimeInterval(setOffset))
+        }
+    }
 }
 
 @MainActor
@@ -175,7 +222,27 @@ final class WeatherService: NSObject, CLLocationManagerDelegate {
             let wind_speed_10m: Double
             let wind_direction_10m: Double
         }
+        struct Daily: Decodable {
+            let sunrise: [String]
+            let sunset: [String]
+        }
         let current: Current
+        let daily: Daily?
+        let utc_offset_seconds: Int?
+    }
+
+    /// Jam lokal dari Open-Meteo ("2026-10-25T05:12") menjadi Date, memakai zona waktu lokasi itu.
+    private static func sunTimes(_ response: Response) -> [(rise: Date, set: Date)] {
+        guard let daily = response.daily, let offset = response.utc_offset_seconds,
+              let zone = TimeZone(secondsFromGMT: offset) else { return [] }
+        let format = DateFormatter()
+        format.locale = Locale(identifier: "en_US_POSIX")
+        format.timeZone = zone
+        format.dateFormat = "yyyy-MM-dd'T'HH:mm"
+        return zip(daily.sunrise, daily.sunset).compactMap { rise, set in
+            guard let r = format.date(from: rise), let s = format.date(from: set) else { return nil }
+            return (r, s)
+        }
     }
 
     /// Koordinat dibulatkan ke 2 desimal (±1 km) sebelum dikirim.
@@ -185,6 +252,10 @@ final class WeatherService: NSObject, CLLocationManagerDelegate {
             URLQueryItem(name: "latitude", value: String(format: "%.2f", latitude)),
             URLQueryItem(name: "longitude", value: String(format: "%.2f", longitude)),
             URLQueryItem(name: "current", value: "temperature_2m,weather_code,is_day,wind_speed_10m,wind_direction_10m"),
+            // Terbit dan terbenam kemarin–besok, untuk posisi matahari dan bulan di wallpaper.
+            URLQueryItem(name: "daily", value: "sunrise,sunset"),
+            URLQueryItem(name: "past_days", value: "1"),
+            URLQueryItem(name: "forecast_days", value: "2"),
             URLQueryItem(name: "timezone", value: "auto"),
         ]
         var request = URLRequest(url: components.url!, timeoutInterval: 15)
@@ -196,7 +267,8 @@ final class WeatherService: NSObject, CLLocationManagerDelegate {
             }
             let c = response.current
             current = Weather(code: c.weather_code, isDay: c.is_day == 1, temperature: c.temperature_2m,
-                              windSpeed: c.wind_speed_10m, windDirection: c.wind_direction_10m, place: place ?? self.place)
+                              windSpeed: c.wind_speed_10m, windDirection: c.wind_direction_10m, place: place ?? self.place,
+                              sunTimes: Self.sunTimes(response))
             loading = false
         }
     }

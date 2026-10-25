@@ -75,7 +75,7 @@ Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilk
 <sub><i>Teks sendiri: nama atau inisialmu dalam huruf dot-matrix hitam putih</i></sub>
 
 <img src="docs/wallpapers/weather.gif" alt="Wallpaper cuaca: hujan dengan payung yang mengikuti jari" width="100%">
-<sub><i>Cuaca hari ini di lokasimu. Geser jari: payung saat hujan, awan terdorong, kabut tersapu, matahari bisa dipindah</i></sub>
+<sub><i>Cuaca hari ini di lokasimu, dengan pemandangan gunung berapi, sawah, dan pohon kelapa. Matahari bergerak sesuai jam terbit dan terbenam asli, bulan mengikuti fasenya. Geser jari: payung saat hujan, awan terdorong, kabut tersapu, matahari bisa digeser</i></sub>
 
 <img src="docs/wallpapers/dino.gif" alt="Wallpaper dino runner" width="100%">
 <sub><i>Dino runner: berlari masuk ke tengah bar, lalu melompati kaktus kecil dan besar. Setelah skor 450 muncul burung: yang rendah dilompati, yang di tengah ditunduki, yang tinggi dibiarkan lewat</i></sub>

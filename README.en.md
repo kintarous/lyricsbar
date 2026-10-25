@@ -285,6 +285,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Version | Changes |
 |---|---|
+| [**1.6**](https://github.com/kintarous/lyricsbar/releases/tag/v1.6) | New wallpaper: a dog playing ball. It chases, grabs, and carries the ball, does a play bow, then nudges the ball again, even jumping to catch it when tossed straight up. 17 themes now |
 | [**1.5.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.5.1) | The ♪ icon no longer disappears when Spotify and Music are closed: it dims but stays put, and opening Lyricsbar again from Applications opens its menu right away. A hidden icon now comes back after the app is reopened. New options: hide the icon, and keep the wallpaper when the players are closed |
 | [**1.5**](https://github.com/kintarous/lyricsbar/releases/tag/v1.5) | Much easier on the battery: the menu bar lyrics no longer keep the CPU busy (about 55% down to about 1% while paused), the player is checked less often when nothing is playing, and the wallpapers are up to 2–3 times lighter with the same look |
 | [**1.4**](https://github.com/kintarous/lyricsbar/releases/tag/v1.4) | Works on Macs without a Touch Bar: the lyrics show up in the menu bar automatically, the toggle sits in the main menu, and Touch Bar-only features are hidden. A lyrics width option for the menu bar (narrow, medium, wide) for notched MacBooks |

@@ -285,6 +285,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Versi | Perubahan |
 |---|---|
+| [**1.6**](https://github.com/kintarous/lyricsbar/releases/tag/v1.6) | Wallpaper baru: anjing bermain bola. Anjingnya mengejar, menggigit, dan membawa bola, membungkuk ajak main, lalu menyundul bola lagi, bahkan melompat menangkap bola yang dilambungkan ke atas. Sekarang ada 17 tema |
 | [**1.5.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.5.1) | Ikon ♪ tidak lagi hilang saat Spotify dan Music ditutup: ikonnya meredup tapi tetap ada, dan membuka Lyricsbar lagi dari Applications langsung membuka menunya. Ikon yang tersembunyi kini muncul kembali setelah app dibuka ulang. Pilihan baru: sembunyikan ikon, dan wallpaper tetap tampil saat pemutar ditutup |
 | [**1.5**](https://github.com/kintarous/lyricsbar/releases/tag/v1.5) | Jauh lebih hemat baterai: lirik di menu bar tidak lagi memakan CPU terus-menerus (sekitar 55% menjadi sekitar 1% saat lagu dijeda), status pemutar dibaca lebih jarang saat lagu tidak diputar, dan wallpaper hingga 2–3 kali lebih ringan dengan tampilan yang sama |
 | [**1.4**](https://github.com/kintarous/lyricsbar/releases/tag/v1.4) | Bisa dipakai di Mac tanpa Touch Bar: lirik otomatis tampil di menu bar, pilihannya ada di menu utama, dan fitur khusus Touch Bar disembunyikan. Pilihan lebar lirik di menu bar (sempit, sedang, lebar) untuk MacBook berponi |

@@ -286,6 +286,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Versi | Perubahan |
 |---|---|
+| [**1.7.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.2) | Ikon ♪ di menu bar pindah ke sebelah kanan lirik, jadi posisinya tidak bergeser saat lirik muncul atau disembunyikan. Perataan lirik kini diatur terpisah untuk Touch Bar dan menu bar, dalam satu menu ♪ › Perataan lirik |
 | [**1.7.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.1) | Lirik di menu bar disembunyikan saat lagu dijeda atau berhenti lebih dari 5 detik, tinggal ikon ♪, supaya tidak memakan tempat dan mendorong ikon lain. Liriknya muncul lagi begitu lagu diputar |
 | [**1.7**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7) | Wallpaper cuaca dengan pemandangan gunung berapi, sawah, dan pohon kelapa. Matahari bergerak sesuai jam terbit dan terbenam asli, bulan mengikuti fase sebenarnya, dan langit berubah dari fajar sampai malam. Semua wallpaper lebih ringan karena tidak lagi mengonversi warna setiap frame |
 | [**1.6**](https://github.com/kintarous/lyricsbar/releases/tag/v1.6) | Wallpaper baru: anjing bermain bola. Anjingnya mengejar, menggigit, dan membawa bola, membungkuk ajak main, lalu menyundul bola lagi, bahkan melompat menangkap bola yang dilambungkan ke atas. Sekarang ada 17 tema |

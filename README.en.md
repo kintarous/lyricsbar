@@ -286,6 +286,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Version | Changes |
 |---|---|
+| [**1.7.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.2) | The ♪ icon in the menu bar moved to the right of the lyrics, so it stays put when the lyrics appear or hide. Lyrics alignment is now set separately for the Touch Bar and the menu bar, in one ♪ › Lyrics alignment menu |
 | [**1.7.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.1) | The menu bar lyrics hide when a song is paused or stopped for more than 5 seconds, leaving just the ♪ icon, so they don't take up room and push other icons aside. The lyrics come back as soon as the song plays |
 | [**1.7**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7) | Weather wallpaper with a landscape of volcanoes, rice terraces, and palm trees. The sun follows the real sunrise and sunset times, the moon shows its real phase, and the sky changes from dawn to night. All wallpapers are lighter since they no longer convert colors every frame |
 | [**1.6**](https://github.com/kintarous/lyricsbar/releases/tag/v1.6) | New wallpaper: a dog playing ball. It chases, grabs, and carries the ball, does a play bow, then nudges the ball again, even jumping to catch it when tossed straight up. 17 themes now |

@@ -244,6 +244,7 @@ Official Spotify and Apple Music lyrics are **not** used, because there's no off
 - The Touch Bar display uses private Apple APIs (like LyricsX, Pock, and MTMR do). A future macOS update could break it.
 - While lyrics are shown, the standard Control Strip is hidden and replaced by Lyricsbar's mini version.
 - On notched MacBooks with many menu bar icons, macOS may hide the menu bar lyrics when there isn't enough room. Choose ♪ › Settings › Lyrics width in menu bar › *Narrow*.
+- When a song is paused or stopped for more than 5 seconds, the menu bar lyrics are hidden on purpose, leaving just the ♪ icon. They come back as soon as the song plays.
 - Volume can't be changed when sound goes out over HDMI. This is a macOS limitation; the button is shown grayed out.
 - Lyrics accuracy depends on the source. Use the offset to fine-tune.
 
@@ -285,6 +286,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Version | Changes |
 |---|---|
+| [**1.7.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.1) | The menu bar lyrics hide when a song is paused or stopped for more than 5 seconds, leaving just the ♪ icon, so they don't take up room and push other icons aside. The lyrics come back as soon as the song plays |
 | [**1.7**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7) | Weather wallpaper with a landscape of volcanoes, rice terraces, and palm trees. The sun follows the real sunrise and sunset times, the moon shows its real phase, and the sky changes from dawn to night. All wallpapers are lighter since they no longer convert colors every frame |
 | [**1.6**](https://github.com/kintarous/lyricsbar/releases/tag/v1.6) | New wallpaper: a dog playing ball. It chases, grabs, and carries the ball, does a play bow, then nudges the ball again, even jumping to catch it when tossed straight up. 17 themes now |
 | [**1.5.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.5.1) | The ♪ icon no longer disappears when Spotify and Music are closed: it dims but stays put, and opening Lyricsbar again from Applications opens its menu right away. A hidden icon now comes back after the app is reopened. New options: hide the icon, and keep the wallpaper when the players are closed |

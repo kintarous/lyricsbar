@@ -244,6 +244,7 @@ Lirik resmi Spotify dan Apple Music **tidak** dipakai, karena tidak ada cara res
 - Tampilan Touch Bar memakai API privat Apple (sama seperti LyricsX, Pock, dan MTMR). Update macOS berikutnya bisa merusaknya.
 - Saat lirik tampil, Control Strip bawaan disembunyikan dan diganti versi mini milik Lyricsbar.
 - Di MacBook berponi (notch) yang ikon menu bar-nya banyak, macOS bisa menyembunyikan lirik di menu bar kalau tempatnya tidak cukup. Pilih ♪ › Pengaturan › Lebar lirik di menu bar › *Sempit*.
+- Saat lagu dijeda atau berhenti lebih dari 5 detik, lirik di menu bar sengaja disembunyikan dan tinggal ikon ♪. Liriknya muncul lagi begitu lagu diputar.
 - Volume tidak bisa diatur saat suara keluar lewat HDMI. Ini batasan macOS; tombolnya akan tampil abu-abu.
 - Ketepatan lirik bergantung pada sumbernya. Gunakan offset untuk merapikan.
 
@@ -285,6 +286,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Versi | Perubahan |
 |---|---|
+| [**1.7.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.1) | Lirik di menu bar disembunyikan saat lagu dijeda atau berhenti lebih dari 5 detik, tinggal ikon ♪, supaya tidak memakan tempat dan mendorong ikon lain. Liriknya muncul lagi begitu lagu diputar |
 | [**1.7**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7) | Wallpaper cuaca dengan pemandangan gunung berapi, sawah, dan pohon kelapa. Matahari bergerak sesuai jam terbit dan terbenam asli, bulan mengikuti fase sebenarnya, dan langit berubah dari fajar sampai malam. Semua wallpaper lebih ringan karena tidak lagi mengonversi warna setiap frame |
 | [**1.6**](https://github.com/kintarous/lyricsbar/releases/tag/v1.6) | Wallpaper baru: anjing bermain bola. Anjingnya mengejar, menggigit, dan membawa bola, membungkuk ajak main, lalu menyundul bola lagi, bahkan melompat menangkap bola yang dilambungkan ke atas. Sekarang ada 17 tema |
 | [**1.5.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.5.1) | Ikon ♪ tidak lagi hilang saat Spotify dan Music ditutup: ikonnya meredup tapi tetap ada, dan membuka Lyricsbar lagi dari Applications langsung membuka menunya. Ikon yang tersembunyi kini muncul kembali setelah app dibuka ulang. Pilihan baru: sembunyikan ikon, dan wallpaper tetap tampil saat pemutar ditutup |

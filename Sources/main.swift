@@ -1541,6 +1541,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var wasPlaying: Bool?
     private var dormant = false
     private var hideWork: DispatchWorkItem?
+    /// Pemutar terbuka tapi tidak memutar lagu selama 5 detik: menu bar cukup ikon ♪ supaya tidak memakan tempat.
+    private var menuBarIdle = false
 
     /// Spotify dan Music ditutup → mode tidur (Touch Bar bawaan, ikon menu bar hilang). Pemutar terbuka tapi tidak
     /// memutar lagu selama 5 detik → Touch Bar bawaan. Lagu diputar → bar lirik tampil.
@@ -1557,14 +1559,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hideWork?.cancel()
         if playing {
             if !touchBar.isShown, !touchBar.isShowingAppBar { touchBar.present() }
+            setMenuBarIdle(false)
         } else {
             let work = DispatchWorkItem { [weak self] in
                 guard let self, self.wasPlaying == false else { return }
                 self.touchBar.hide()
+                self.setMenuBarIdle(true)
             }
             hideWork = work
             DispatchQueue.main.asyncAfter(deadline: .now() + 5, execute: work)
         }
+    }
+
+    private func setMenuBarIdle(_ idle: Bool) {
+        guard idle != menuBarIdle else { return }
+        menuBarIdle = idle
+        renderMenuBar(currentLine().text)
     }
 
     /// Terlihat seperti app keluar, tapi tetap berjalan supaya bisa aktif lagi sendiri saat pemutar dibuka
@@ -1705,8 +1715,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// kali dipotret, sehingga pemotretan berulang tanpa henti dan memakan sekitar 40% CPU.
     private func renderMenuBar(_ text: String) {
         guard let button = statusItem.button else { return }
-        // Saat Spotify dan Music ditutup tidak ada lirik, jadi cukup ikon (tanpa pesan yang memakan tempat).
-        let showsLyrics = showInMenuBar && !dormant
+        // Saat Spotify dan Music ditutup atau lagu tidak diputar, cukup ikon (tanpa pesan yang memakan tempat).
+        let showsLyrics = showInMenuBar && !dormant && !menuBarIdle
         let key = showsLyrics ? alignment.rawValue + menuBarWidth.rawValue + text : ""
         guard key != menuBarKey else { return }
         menuBarKey = key

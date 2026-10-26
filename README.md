@@ -48,7 +48,7 @@ Untuk Spotify dan Apple Music, di Mac dengan atau tanpa Touch Bar.
 | 🎛️ **Control Strip mini** | Kecerahan, volume, mute, ⏮ ⏯ ⏭, langsung dari Touch Bar |
 | 🫧 **Slider Liquid Glass** | Knob kapsul kaca yang membesar, bening seperti lensa, dan melar saat digeser. Warnanya mengikuti warna aksen sistem |
 | 😀 **Emoji** | Satu ketukan untuk memunculkan pemilih emoji dan saran kata bawaan macOS |
-| ↔️ **Perataan** | Rata kiri, tengah, atau kanan, di Touch Bar maupun menu bar |
+| ↔️ **Perataan** | Rata kiri, tengah, atau kanan, diatur terpisah untuk Touch Bar dan menu bar |
 | ⏱️ **Offset per lagu** | Lirik terlalu cepat atau lambat? Geser ±0,5 detik, tersimpan per lagu |
 | 🎧 **Spotify & Apple Music** | Pemutar yang sedang memutar lagu dipakai otomatis |
 | 🐠 **Wallpaper saat idle** | Saat tidak ada lagu dan Mac lama tidak disentuh, Touch Bar menampilkan animasi: ikan, kereta, hujan, kota malam, aurora, kucing, anjing bermain bola, dino, dan lainnya (17 tema), termasuk teks buatanmu sendiri (nama atau inisial) dalam huruf dot-matrix hitam putih, dan cuaca hari ini di lokasimu dalam hitam putih yang bisa dimainkan: geser jari untuk memunculkan payung saat hujan, mendorong awan, menyapu kabut, atau memindah matahari. Ketuk untuk kembali ke tombol bawaan |
@@ -200,7 +200,7 @@ Semua pengaturan ada di ikon **♪** di menu bar. Ikonnya tidak kelihatan? Buka 
 | Cari ulang lirik | Mencari lirik lagu ini lagi |
 | Buka folder lirik sendiri… | Tempat menaruh file `.lrc` buatanmu |
 | Animasi lirik | Geser ke atas, pudar, atau tanpa animasi |
-| Perataan lirik | Rata kiri, tengah, atau kanan |
+| Perataan lirik | Rata kiri, tengah, atau kanan, terpisah untuk Touch Bar dan menu bar |
 | Wallpaper saat idle | Pilih tema (langsung dipratinjau), teks sendiri, dan lokasi cuaca |
 | Bahasa | Ikuti sistem, Bahasa Indonesia, atau English |
 | Pengaturan | **Wallpaper:** muncul setelah Mac tidak dipakai (30 detik–5 menit), tutup saat (disentuh saja, atau juga saat mengetik/klik), mode tenang (15 menit–4 jam, atau tidak pernah). **Lirik:** lirik juga di menu bar, lebar lirik di menu bar (sempit, sedang, lebar). **Ikon menu bar:** sembunyikan saat Spotify & Music ditutup. Bagian Wallpaper (termasuk *tetap tampil saat Spotify & Music ditutup*) hanya ada di Mac dengan Touch Bar |

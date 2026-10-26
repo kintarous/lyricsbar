@@ -48,7 +48,7 @@ For Spotify and Apple Music, on Macs with or without a Touch Bar.
 | 🎛️ **Mini Control Strip** | Brightness, volume, mute, ⏮ ⏯ ⏭, right on the Touch Bar |
 | 🫧 **Liquid Glass sliders** | A glass capsule knob that grows, turns clear like a lens, and stretches as you drag. Its color follows your system accent color |
 | 😀 **Emoji** | One tap brings up the built-in macOS emoji picker and word suggestions |
-| ↔️ **Alignment** | Left, center, or right, on the Touch Bar and in the menu bar |
+| ↔️ **Alignment** | Left, center, or right, set separately for the Touch Bar and the menu bar |
 | ⏱️ **Per-song offset** | Lyrics too early or too late? Shift them by ±0.5 s, saved per song |
 | 🎧 **Spotify & Apple Music** | Whichever player is playing is used automatically |
 | 🐠 **Idle wallpaper** | When nothing is playing and the Mac has been idle for a while, the Touch Bar shows an animation: fish, a train, rain, a city at night, aurora, a cat, a dog playing ball, a dino, and more (17 themes), including your own text (a name or initials) in black-and-white dot-matrix letters, and today's weather where you are, in black and white and playable: slide a finger to open an umbrella in the rain, push clouds, wipe away fog, or move the sun. Tap to get the standard buttons back |
@@ -200,7 +200,7 @@ Every setting lives in the **♪** icon in the menu bar. Can't see the icon? Ope
 | Search lyrics again | Looks up the lyrics for this song again |
 | Open your lyrics folder… | Where you put your own `.lrc` files |
 | Lyrics animation | Slide up, fade, or no animation |
-| Lyrics alignment | Left, center, or right |
+| Lyrics alignment | Left, center, or right, separately for the Touch Bar and the menu bar |
 | Idle wallpaper | Pick a theme (it previews right away), your own text, and the weather location |
 | Language | Same as system, Bahasa Indonesia, or English |
 | Settings | **Wallpaper:** show after the Mac is idle (30 seconds–5 minutes), close when (touch only, or also typing/clicking), calm mode (15 minutes–4 hours, or never). **Lyrics:** also show lyrics in the menu bar, lyrics width in the menu bar (narrow, medium, wide). **Menu bar icon:** hide when Spotify & Music are closed. The Wallpaper section (including *keep showing when Spotify & Music are closed*) only appears on Macs with a Touch Bar |

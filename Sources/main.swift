@@ -1363,6 +1363,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    /// Perataan lirik di menu bar, terpisah dari Touch Bar. Bawaannya mengikuti perataan yang sudah dipilih sebelumnya.
+    private var menuBarAlignment: LyricAlignment {
+        get { LyricAlignment(rawValue: UserDefaults.standard.string(forKey: "menuBarAlignment") ?? "") ?? alignment }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "menuBarAlignment") }
+    }
+
     private var animation: LyricAnimation {
         get { LyricAnimation(rawValue: UserDefaults.standard.string(forKey: "animation") ?? "") ?? .slideUp }
         set {
@@ -1708,7 +1714,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }()
 
     /// Lirik di menu bar memakai area selebar tetap supaya perataan kiri/tengah/kanan terlihat;
-    /// ikon ♪ tetap di kiri, teks yang terlalu panjang dipotong dengan "…".
+    /// ikon ♪ di kanan, teks yang terlalu panjang dipotong dengan "…". Menu bar melebar ke kiri, jadi ikon di kanan
+    /// tetap di tempat yang sama saat lirik muncul atau disembunyikan.
     ///
     /// Ikon dan lirik digambar menjadi satu gambar template, bukan view tambahan di dalam tombol: macOS terus
     /// memotret tombol menu bar untuk salinannya, dan view tambahan ikut ditandai "perlu digambar ulang" setiap
@@ -1717,7 +1724,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let button = statusItem.button else { return }
         // Saat Spotify dan Music ditutup atau lagu tidak diputar, cukup ikon (tanpa pesan yang memakan tempat).
         let showsLyrics = showInMenuBar && !dormant && !menuBarIdle
-        let key = showsLyrics ? alignment.rawValue + menuBarWidth.rawValue + text : ""
+        let key = showsLyrics ? menuBarAlignment.rawValue + menuBarWidth.rawValue + text : ""
         guard key != menuBarKey else { return }
         menuBarKey = key
 
@@ -1729,7 +1736,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         statusItem.length = menuBarWidth.points
         button.imagePosition = .imageOnly
-        button.image = Self.menuBarImage(text, width: menuBarWidth.points - 8, alignment: alignment.textAlignment)
+        button.image = Self.menuBarImage(text, width: menuBarWidth.points - 8, alignment: menuBarAlignment.textAlignment)
         button.setAccessibilityLabel(text)
     }
 
@@ -1743,9 +1750,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                                                          .paragraphStyle: paragraph]
         let image = NSImage(size: NSSize(width: width, height: height), flipped: false) { _ in
             let iconSize: CGFloat = 16
-            noteIcon?.draw(in: NSRect(x: 2, y: (height - iconSize) / 2, width: iconSize, height: iconSize))
+            noteIcon?.draw(in: NSRect(x: width - iconSize - 2, y: (height - iconSize) / 2, width: iconSize, height: iconSize))
             let textHeight = (text as NSString).size(withAttributes: attributes).height
-            let textRect = NSRect(x: 2 + iconSize + 6, y: (height - textHeight) / 2, width: width - iconSize - 10, height: textHeight)
+            let textRect = NSRect(x: 2, y: (height - textHeight) / 2, width: width - iconSize - 10, height: textHeight)
             (text as NSString).draw(with: textRect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: attributes)
             return true
         }
@@ -1803,14 +1810,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         animationItem.submenu = animationMenu
         // Animasi pergantian baris hanya dipakai di Touch Bar.
         if hasTouchBar { menu.addItem(animationItem) }
+        // Perataan Touch Bar dan menu bar diatur terpisah dalam satu submenu; tanpa Touch Bar cukup bagian menu bar.
         let alignmentMenu = NSMenu()
-        for option in LyricAlignment.allCases {
-            let item = NSMenuItem(title: option.title, action: #selector(chooseAlignment(_:)), keyEquivalent: "")
-            item.target = self
-            item.representedObject = option.rawValue
-            item.state = option == alignment ? .on : .off
-            alignmentMenu.addItem(item)
+        func alignmentSection(_ title: String, _ current: LyricAlignment, _ selector: Selector) {
+            if hasTouchBar {
+                let header = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+                header.isEnabled = false
+                alignmentMenu.addItem(header)
+            }
+            for option in LyricAlignment.allCases {
+                let item = NSMenuItem(title: option.title, action: selector, keyEquivalent: "")
+                item.target = self
+                item.representedObject = option.rawValue
+                item.state = option == current ? .on : .off
+                item.indentationLevel = hasTouchBar ? 1 : 0
+                alignmentMenu.addItem(item)
+            }
         }
+        if hasTouchBar {
+            alignmentSection("Touch Bar", alignment, #selector(chooseAlignment(_:)))
+            alignmentMenu.addItem(.separator())
+        }
+        alignmentSection("Menu bar", menuBarAlignment, #selector(chooseMenuBarAlignment(_:)))
         let alignmentItem = NSMenuItem(title: L("Perataan lirik", "Lyrics alignment"), action: nil, keyEquivalent: "")
         alignmentItem.submenu = alignmentMenu
         menu.addItem(alignmentItem)
@@ -2070,6 +2091,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let raw = sender.representedObject as? String, let option = LyricAlignment(rawValue: raw) {
             alignment = option
         }
+    }
+
+    @objc private func chooseMenuBarAlignment(_ sender: NSMenuItem) {
+        if let raw = sender.representedObject as? String, let option = LyricAlignment(rawValue: raw) { menuBarAlignment = option }
     }
 
     @objc private func chooseAnimation(_ sender: NSMenuItem) {

@@ -26,6 +26,11 @@ for s in 16 32 128 256 512; do
 done
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
+# Pembaca Now Playing untuk pemutar lain (YouTube Music dll.), dijalankan lewat /usr/bin/perl. Lihat Sources/NowPlaying.swift.
+clang -dynamiclib -fobjc-arc -O2 -arch arm64 -arch x86_64 -mmacosx-version-min=13.0 -framework Foundation \
+    Helper/NowPlaying.m -o "$APP/Contents/Resources/NowPlaying.dylib"
+codesign --force --sign - "$APP/Contents/Resources/NowPlaying.dylib"
+
 # Sebagian besar MacBook Pro ber-Touch Bar memakai Intel, jadi build untuk kedua arsitektur lalu digabung.
 for arch in arm64 x86_64; do
     swiftc -O -swift-version 5 -target "$arch-apple-macos13.0" \

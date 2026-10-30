@@ -6,7 +6,7 @@
 
 **Lirik lagu yang sedang kamu putar, tampil sinkron di Touch Bar atau menu bar.**
 <br>
-Untuk Spotify dan Apple Music, di Mac dengan atau tanpa Touch Bar.
+Untuk Spotify, Apple Music, dan YouTube Music, di Mac dengan atau tanpa Touch Bar.
 
 [![Rilis terbaru](https://img.shields.io/github/v/release/kintarous/lyricsbar?style=flat-square&label=rilis&color=2ecc71)](https://github.com/kintarous/lyricsbar/releases/latest)
 [![Unduhan](https://img.shields.io/github/downloads/kintarous/lyricsbar/total?style=flat-square&label=unduhan&color=2ecc71)](https://github.com/kintarous/lyricsbar/releases)
@@ -19,6 +19,7 @@ Untuk Spotify dan Apple Music, di Mac dengan atau tanpa Touch Bar.
 <br>
 [![Spotify](https://img.shields.io/badge/Spotify-didukung-1DB954?style=flat-square&logo=spotify&logoColor=white)](#fitur)
 [![Apple Music](https://img.shields.io/badge/Apple%20Music-didukung-FA243C?style=flat-square&logo=applemusic&logoColor=white)](#fitur)
+[![YouTube Music](https://img.shields.io/badge/YouTube%20Music-didukung-FF0000?style=flat-square&logo=youtubemusic&logoColor=white)](#pemutar-lain-youtube-music-dll)
 
 <br>
 
@@ -50,7 +51,7 @@ Untuk Spotify dan Apple Music, di Mac dengan atau tanpa Touch Bar.
 | 😀 **Emoji** | Satu ketukan untuk memunculkan pemilih emoji dan saran kata bawaan macOS |
 | ↔️ **Perataan** | Rata kiri, tengah, atau kanan, diatur terpisah untuk Touch Bar dan menu bar |
 | ⏱️ **Offset per lagu** | Lirik terlalu cepat atau lambat? Geser ±0,5 detik, tersimpan per lagu |
-| 🎧 **Spotify & Apple Music** | Pemutar yang sedang memutar lagu dipakai otomatis |
+| 🎧 **Spotify, Apple Music, YouTube Music** | Pemutar yang sedang memutar lagu dipakai otomatis. YouTube Music lewat [Meiro](https://github.com/elianiva/meiro), Pear Desktop, atau browser, dan pemutar lain yang tampil di Now Playing macOS |
 | 🐠 **Wallpaper saat idle** | Saat tidak ada lagu dan Mac lama tidak disentuh, Touch Bar menampilkan animasi: ikan, kereta, hujan, kota malam, aurora, kucing, anjing bermain bola, dino, dan lainnya (17 tema), termasuk teks buatanmu sendiri (nama atau inisial) dalam huruf dot-matrix hitam putih, dan cuaca hari ini di lokasimu dalam hitam putih yang bisa dimainkan: geser jari untuk memunculkan payung saat hujan, mendorong awan, menyapu kabut, atau memindah matahari. Ketuk untuk kembali ke tombol bawaan |
 | 🌐 **Indonesia & Inggris** | Bahasa Indonesia kalau bahasa atau wilayah macOS-mu Indonesia, selain itu Inggris. Bisa juga dipilih di menu ♪ |
 | 🖥️ **Tanpa Touch Bar pun bisa** | Di Mac tanpa Touch Bar, Lyricsbar otomatis menampilkan lirik di menu bar dan menyembunyikan fitur khusus Touch Bar |
@@ -153,7 +154,7 @@ Saat tidak ada lagu yang diputar dan Mac lama tidak dipakai, Touch Bar menampilk
   - **Dengan Touch Bar** (MacBook Pro 2016–2022): lirik, kontrol, dan wallpaper tampil di Touch Bar
   - **Tanpa Touch Bar**: lirik tampil di menu bar
 - 🍎 **macOS 13 Ventura** atau lebih baru
-- 🎵 App desktop **Spotify** atau **Music** (Apple Music)
+- 🎵 App desktop **Spotify** atau **Music** (Apple Music), atau pemutar lain yang tampil di Now Playing macOS, misalnya [Meiro](https://github.com/elianiva/meiro) untuk YouTube Music
 
 ## Instalasi
 
@@ -212,12 +213,25 @@ Semua pengaturan ada di ikon **♪** di menu bar. Ikonnya tidak kelihatan? Buka 
 
 | Tombol | Fungsi |
 |---|---|
-| Logo pemutar | Membuka Spotify/Music |
+| Logo pemutar | Membuka app pemutar yang sedang dipakai |
 | 😀 | Menampilkan Touch Bar app yang sedang kamu pakai (pemilih emoji dan saran kata). Lirik kembali sendiri setelah 8 detik tanpa mengetik |
 | ☀︎ / 🔊 | Slider kecerahan / volume. Kembali ke lirik setelah 4 detik, atau ketuk **Selesai** |
 | 🔇 | Mute |
 | ⏮ ⏯ ⏭ | Lagu sebelumnya, putar/jeda, lagu berikutnya |
 </details>
+
+## Pemutar lain (YouTube Music dll.)
+
+Selain Spotify dan Music, Lyricsbar membaca **Now Playing** macOS, yaitu info lagu yang juga tampil di Control Center. Jadi lirik ikut tampil untuk pemutar lain, misalnya:
+
+- [**Meiro**](https://github.com/elianiva/meiro) dan **Pear Desktop** untuk YouTube Music,
+- **YouTube Music di browser** (Chrome, Safari, Arc, Edge, Brave, Firefox, dan lainnya).
+
+Tidak perlu pengaturan atau izin tambahan. Tombol putar/jeda, lagu sebelumnya, dan berikutnya di Touch Bar ikut mengendalikan pemutar itu.
+
+- Dari browser, hanya lagu yang punya info album yang dianggap lagu. YouTube Music mengisi album, video YouTube biasa tidak, jadi menonton video tidak memunculkan lirik.
+- Judul ala YouTube dirapikan sebelum liriknya dicari: "Artis - Lagu (Official Video)" menjadi "Lagu", dan "ArtisVEVO" atau "Artis - Topic" menjadi "Artis".
+- Sejak macOS 15.4, Apple hanya memberi data Now Playing ke program miliknya sendiri. Karena itu Lyricsbar membacanya lewat program kecil yang berjalan di dalam `/usr/bin/perl` bawaan macOS (terlihat sebagai proses `perl` di Activity Monitor, sekitar 12 MB RAM). Kalau Apple menutup jalan ini, pemutar lain berhenti terbaca, tapi Spotify dan Music tetap berjalan seperti biasa.
 
 ## Dari mana liriknya?
 
@@ -238,10 +252,12 @@ Lirik resmi Spotify dan Apple Music **tidak** dipakai, karena tidak ada cara res
 - Untuk mencari lirik, **judul, artis, album, dan durasi** lagu dikirim ke LRCLIB dan NetEase. Lirik yang ketemu disimpan di `~/Library/Caches/local.touchbarlyrics/`.
 - Kalau kamu memakai wallpaper **Cuaca hari ini**, lokasi MacBook (dibulatkan sekitar 1 km) dikirim ke [Open-Meteo](https://open-meteo.com) untuk mengambil cuaca, dan nama kotanya dicari lewat Apple. Kamu juga bisa mengisi kota sendiri lewat menu ♪ tanpa memberi izin Lokasi.
 - Izin yang diminta adalah **Automation**, untuk membaca lagu dan posisi pemutaran dari Spotify/Music. Kecerahan dan volume diatur tanpa izin tambahan. Izin **Lokasi** hanya diminta saat kamu memilih wallpaper cuaca dengan lokasi otomatis.
+- Pemutar lain dibaca dari Now Playing macOS tanpa izin tambahan, dan datanya tidak dikirim ke mana pun selain pencarian lirik di atas.
 
 ## Batasan
 
 - Tampilan Touch Bar memakai API privat Apple (sama seperti LyricsX, Pock, dan MTMR). Update macOS berikutnya bisa merusaknya.
+- Pemutar lain (YouTube Music dll.) dibaca lewat jalan pintas yang bisa ditutup Apple di update macOS berikutnya. Lihat [Pemutar lain](#pemutar-lain-youtube-music-dll).
 - Saat lirik tampil, Control Strip bawaan disembunyikan dan diganti versi mini milik Lyricsbar.
 - Di MacBook berponi (notch) yang ikon menu bar-nya banyak, macOS bisa menyembunyikan lirik di menu bar kalau tempatnya tidak cukup. Pilih ♪ › Pengaturan › Lebar lirik di menu bar › *Sempit*.
 - Saat lagu dijeda atau berhenti lebih dari 5 detik, lirik di menu bar sengaja disembunyikan dan tinggal ikon ♪. Liriknya muncul lagi begitu lagu diputar.
@@ -286,6 +302,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Versi | Perubahan |
 |---|---|
+| [**1.8**](https://github.com/kintarous/lyricsbar/releases/tag/v1.8) | Lirik untuk pemutar lain lewat Now Playing macOS: YouTube Music di Meiro, Pear Desktop, atau browser, dan pemutar lain. Tombol putar/jeda dan ganti lagu di Touch Bar ikut berfungsi, dan judul ala YouTube dirapikan supaya liriknya ketemu |
 | [**1.7.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.2) | Ikon ♪ di menu bar pindah ke sebelah kanan lirik, jadi posisinya tidak bergeser saat lirik muncul atau disembunyikan. Perataan lirik kini diatur terpisah untuk Touch Bar dan menu bar, dalam satu menu ♪ › Perataan lirik |
 | [**1.7.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.1) | Lirik di menu bar disembunyikan saat lagu dijeda atau berhenti lebih dari 5 detik, tinggal ikon ♪, supaya tidak memakan tempat dan mendorong ikon lain. Liriknya muncul lagi begitu lagu diputar |
 | [**1.7**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7) | Wallpaper cuaca dengan pemandangan gunung berapi, sawah, dan pohon kelapa. Matahari bergerak sesuai jam terbit dan terbenam asli, bulan mengikuti fase sebenarnya, dan langit berubah dari fajar sampai malam. Semua wallpaper lebih ringan karena tidak lagi mengonversi warna setiap frame |
@@ -304,7 +321,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 - Cuaca: [Open-Meteo](https://open-meteo.com)
 - Ikon app: <a href="https://www.flaticon.com/free-icon/music-book_4675527" title="music book icons">Music book icons created by Magnific - Flaticon</a> (Flaticon License, gratis dengan atribusi)
 
-Lyricsbar tidak berafiliasi dengan Spotify maupun Apple. Spotify, Apple Music, dan Touch Bar adalah merek dagang milik pemiliknya masing-masing.
+Lyricsbar tidak berafiliasi dengan Spotify, Apple, maupun Google. Spotify, Apple Music, YouTube Music, dan Touch Bar adalah merek dagang milik pemiliknya masing-masing.
 
 ## Lisensi
 

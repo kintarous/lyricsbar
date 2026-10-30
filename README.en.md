@@ -6,7 +6,7 @@
 
 **Lyrics for the song you're playing, in sync on your Touch Bar or menu bar.**
 <br>
-For Spotify and Apple Music, on Macs with or without a Touch Bar.
+For Spotify, Apple Music, and YouTube Music, on Macs with or without a Touch Bar.
 
 [![Latest release](https://img.shields.io/github/v/release/kintarous/lyricsbar?style=flat-square&label=release&color=2ecc71)](https://github.com/kintarous/lyricsbar/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/kintarous/lyricsbar/total?style=flat-square&label=downloads&color=2ecc71)](https://github.com/kintarous/lyricsbar/releases)
@@ -19,6 +19,7 @@ For Spotify and Apple Music, on Macs with or without a Touch Bar.
 <br>
 [![Spotify](https://img.shields.io/badge/Spotify-supported-1DB954?style=flat-square&logo=spotify&logoColor=white)](#features)
 [![Apple Music](https://img.shields.io/badge/Apple%20Music-supported-FA243C?style=flat-square&logo=applemusic&logoColor=white)](#features)
+[![YouTube Music](https://img.shields.io/badge/YouTube%20Music-supported-FF0000?style=flat-square&logo=youtubemusic&logoColor=white)](#other-players-youtube-music-and-more)
 
 <br>
 
@@ -50,7 +51,7 @@ For Spotify and Apple Music, on Macs with or without a Touch Bar.
 | 😀 **Emoji** | One tap brings up the built-in macOS emoji picker and word suggestions |
 | ↔️ **Alignment** | Left, center, or right, set separately for the Touch Bar and the menu bar |
 | ⏱️ **Per-song offset** | Lyrics too early or too late? Shift them by ±0.5 s, saved per song |
-| 🎧 **Spotify & Apple Music** | Whichever player is playing is used automatically |
+| 🎧 **Spotify, Apple Music, YouTube Music** | Whichever player is playing is used automatically. YouTube Music works through [Meiro](https://github.com/elianiva/meiro), Pear Desktop, or a browser, as do other players that show up in macOS Now Playing |
 | 🐠 **Idle wallpaper** | When nothing is playing and the Mac has been idle for a while, the Touch Bar shows an animation: fish, a train, rain, a city at night, aurora, a cat, a dog playing ball, a dino, and more (17 themes), including your own text (a name or initials) in black-and-white dot-matrix letters, and today's weather where you are, in black and white and playable: slide a finger to open an umbrella in the rain, push clouds, wipe away fog, or move the sun. Tap to get the standard buttons back |
 | 🌐 **English & Indonesian** | Indonesian when your macOS language or region is Indonesia, English otherwise. You can also pick one in the ♪ menu |
 | 🖥️ **Works without a Touch Bar too** | On a Mac without a Touch Bar, Lyricsbar shows the lyrics in the menu bar automatically and hides the Touch Bar-only features |
@@ -153,7 +154,7 @@ When nothing is playing and your Mac has been idle for a while, the Touch Bar sh
   - **With a Touch Bar** (MacBook Pro 2016–2022): lyrics, controls, and wallpapers on the Touch Bar
   - **Without a Touch Bar**: lyrics in the menu bar
 - 🍎 **macOS 13 Ventura** or later
-- 🎵 The **Spotify** or **Music** (Apple Music) desktop app
+- 🎵 The **Spotify** or **Music** (Apple Music) desktop app, or another player that shows up in macOS Now Playing, such as [Meiro](https://github.com/elianiva/meiro) for YouTube Music
 
 ## Installation
 
@@ -212,12 +213,25 @@ Every setting lives in the **♪** icon in the menu bar. Can't see the icon? Ope
 
 | Button | What it does |
 |---|---|
-| Player logo | Opens Spotify/Music |
+| Player logo | Opens the player app in use |
 | 😀 | Shows the Touch Bar of the app you're using (emoji picker and word suggestions). The lyrics come back on their own after 8 seconds without typing |
 | ☀︎ / 🔊 | Brightness / volume slider. Goes back to the lyrics after 4 seconds, or tap **Done** |
 | 🔇 | Mute |
 | ⏮ ⏯ ⏭ | Previous track, play/pause, next track |
 </details>
+
+## Other players (YouTube Music and more)
+
+Besides Spotify and Music, Lyricsbar reads macOS **Now Playing**, the song info also shown in Control Center. So lyrics also show up for other players, such as:
+
+- [**Meiro**](https://github.com/elianiva/meiro) and **Pear Desktop** for YouTube Music,
+- **YouTube Music in a browser** (Chrome, Safari, Arc, Edge, Brave, Firefox, and others).
+
+No setup or extra permissions needed. The play/pause, previous, and next buttons on the Touch Bar control that player too.
+
+- From a browser, only tracks with album info count as songs. YouTube Music fills in the album and regular YouTube videos don't, so watching a video doesn't bring up lyrics.
+- YouTube-style titles are tidied up before the lyrics search: "Artist - Song (Official Video)" becomes "Song", and "ArtistVEVO" or "Artist - Topic" becomes "Artist".
+- Since macOS 15.4, Apple only gives Now Playing data to its own programs. So Lyricsbar reads it through a small program running inside macOS's built-in `/usr/bin/perl` (shown as a `perl` process in Activity Monitor, about 12 MB of RAM). If Apple closes this route, other players stop being read, but Spotify and Music keep working as usual.
 
 ## Where do the lyrics come from?
 
@@ -238,10 +252,12 @@ Official Spotify and Apple Music lyrics are **not** used, because there's no off
 - To find lyrics, the song's **title, artist, album, and duration** are sent to LRCLIB and NetEase. Lyrics that are found are saved in `~/Library/Caches/local.touchbarlyrics/`.
 - If you use the **Today's weather** wallpaper, your MacBook's location (rounded to about 1 km) is sent to [Open-Meteo](https://open-meteo.com) to get the weather, and the city name is looked up through Apple. You can also set a city yourself in the ♪ menu without granting Location access.
 - The permission Lyricsbar asks for is **Automation**, to read the song and playback position from Spotify/Music. Brightness and volume work without extra permissions. **Location** is only requested when you choose the weather wallpaper with automatic location.
+- Other players are read from macOS Now Playing without extra permissions, and that data goes nowhere except the lyrics search above.
 
 ## Limitations
 
 - The Touch Bar display uses private Apple APIs (like LyricsX, Pock, and MTMR do). A future macOS update could break it.
+- Other players (YouTube Music and more) are read through a workaround that Apple could close in a future macOS update. See [Other players](#other-players-youtube-music-and-more).
 - While lyrics are shown, the standard Control Strip is hidden and replaced by Lyricsbar's mini version.
 - On notched MacBooks with many menu bar icons, macOS may hide the menu bar lyrics when there isn't enough room. Choose ♪ › Settings › Lyrics width in menu bar › *Narrow*.
 - When a song is paused or stopped for more than 5 seconds, the menu bar lyrics are hidden on purpose, leaving just the ♪ icon. They come back as soon as the song plays.
@@ -286,6 +302,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Version | Changes |
 |---|---|
+| [**1.8**](https://github.com/kintarous/lyricsbar/releases/tag/v1.8) | Lyrics for other players through macOS Now Playing: YouTube Music in Meiro, Pear Desktop, or a browser, and more. The Touch Bar play/pause and track buttons work with them too, and YouTube-style titles are tidied up so the lyrics are found |
 | [**1.7.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.2) | The ♪ icon in the menu bar moved to the right of the lyrics, so it stays put when the lyrics appear or hide. Lyrics alignment is now set separately for the Touch Bar and the menu bar, in one ♪ › Lyrics alignment menu |
 | [**1.7.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.1) | The menu bar lyrics hide when a song is paused or stopped for more than 5 seconds, leaving just the ♪ icon, so they don't take up room and push other icons aside. The lyrics come back as soon as the song plays |
 | [**1.7**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7) | Weather wallpaper with a landscape of volcanoes, rice terraces, and palm trees. The sun follows the real sunrise and sunset times, the moon shows its real phase, and the sky changes from dawn to night. All wallpapers are lighter since they no longer convert colors every frame |
@@ -304,7 +321,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 - Weather: [Open-Meteo](https://open-meteo.com)
 - App icon: <a href="https://www.flaticon.com/free-icon/music-book_4675527" title="music book icons">Music book icons created by Magnific - Flaticon</a> (Flaticon License, free with attribution)
 
-Lyricsbar isn't affiliated with Spotify or Apple. Spotify, Apple Music, and Touch Bar are trademarks of their respective owners.
+Lyricsbar isn't affiliated with Spotify, Apple, or Google. Spotify, Apple Music, YouTube Music, and Touch Bar are trademarks of their respective owners.
 
 ## License
 

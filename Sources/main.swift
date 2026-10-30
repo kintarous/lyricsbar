@@ -47,25 +47,27 @@ func L(_ indonesian: String, _ english: String) -> String {
     AppLanguage.isIndonesian ? indonesian : english
 }
 
-// MARK: - Pemutar musik (Spotify, Apple Music)
+// MARK: - Pemutar musik (Spotify, Apple Music, pemutar lain lewat Now Playing)
 
-enum Player: String, CaseIterable {
-    case spotify, music
-
-    var bundleID: String {
-        switch self {
-        case .spotify: return "com.spotify.client"
-        case .music: return "com.apple.Music"
-        }
-    }
-
+struct Player: Hashable {
+    let bundleID: String
     /// Nama untuk ditampilkan dan untuk `tell application` di AppleScript.
-    var name: String {
-        switch self {
-        case .spotify: return "Spotify"
-        case .music: return "Music"
-        }
+    let name: String
+
+    static let spotify = Player(bundleID: "com.spotify.client", name: "Spotify")
+    static let music = Player(bundleID: "com.apple.Music", name: "Music")
+    /// Dibaca lewat AppleScript; pemutar lain dibaca dari Now Playing macOS (lihat NowPlayingSource).
+    static let scripted = [spotify, music]
+
+    /// Pemutar lain, misalnya Meiro (YouTube Music) atau browser.
+    static func other(_ bundleID: String) -> Player {
+        let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
+        let name = url.flatMap { FileManager.default.displayName(atPath: $0.path) }?
+            .replacingOccurrences(of: ".app", with: "") ?? bundleID
+        return Player(bundleID: bundleID, name: name)
     }
+
+    var isScripted: Bool { Self.scripted.contains(self) }
 
     var appURL: URL? { NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) }
 
@@ -120,7 +122,7 @@ final class PlayerReader {
     private var commandScripts: [Player: [PlayerCommand: NSAppleScript]] = [:]
 
     init() {
-        for player in Player.allCases {
+        for player in Player.scripted {
             // Batas 3 detik: pemutar yang baru dibuka bisa belum menjawab, dan tanpa batas macOS menunggu
             // sampai 2 menit. Spotify memakai `id`, Music memakai `persistent ID`.
             let idExpression = player == .music ? "persistent ID of currentSong" : "id of currentSong"
@@ -145,19 +147,32 @@ final class PlayerReader {
         }
     }
 
+    private let nowPlaying = NowPlayingSource()
+
+    /// Dipanggil (dari thread mana saja) saat Now Playing berubah, supaya status dibaca ulang tanpa menunggu.
+    var onNowPlayingChange: (() -> Void)? {
+        get { nowPlaying.onChange }
+        set { nowPlaying.onChange = newValue }
+    }
+
     func send(_ command: PlayerCommand) {
-        guard let player = current, player.runningApp?.isFinishedLaunching == true else { return }
+        guard let player = current else { return }
+        if !player.isScripted {
+            nowPlaying.send(command)
+            return
+        }
+        guard player.runningApp?.isFinishedLaunching == true else { return }
         var error: NSDictionary?
         commandScripts[player]?[command]?.executeAndReturnError(&error)
     }
 
     func read() -> (PlayerStatus, Player?) {
-        let running = Player.allCases.filter { $0.runningApp != nil }
-        guard !running.isEmpty else {
+        var results = Player.scripted.filter { $0.runningApp != nil }.map { ($0, read($0)) }
+        if let other = nowPlaying.read() { results.append(other) }
+        guard !results.isEmpty else {
             current = nil
             return (.notRunning, nil)
         }
-        let results = running.map { ($0, read($0)) }
 
         // 1. Yang sedang memutar lagu (utamakan pemutar terakhir kalau keduanya memutar).
         let playing = results.filter { $0.1.isPlaying }
@@ -1442,6 +1457,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let menu = NSMenu()
         menu.delegate = self
         statusItem.menu = menu
+        // Pemutar lain (YouTube Music dll.) memberi tahu lewat Now Playing; baca ulang langsung tanpa menunggu giliran.
+        reader.onNowPlayingChange = { [weak self] in DispatchQueue.main.async { self?.poll() } }
 
         // `open -a Lyricsbar --args --enable-login-item` mengaktifkan "Buka saat login" tanpa lewat menu.
         // Daftar ulang supaya login item menunjuk ke lokasi app yang sedang jalan (misalnya /Applications),

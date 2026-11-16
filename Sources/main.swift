@@ -307,8 +307,9 @@ enum LRC {
 
     /// "<00:01.00>Is <00:01.40>this <00:02.10>" → [(1.0, "Is "), (1.4, "this "), (2.1, "")]; kosong kalau tanpa timing per kata.
     static func words(_ text: String) -> [(time: Double, text: String)] {
-        let ns = text as NSString
-        let matches = wordStamp.matches(in: text, range: NSRange(location: 0, length: ns.length))
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let ns = trimmed as NSString
+        let matches = wordStamp.matches(in: trimmed, range: NSRange(location: 0, length: ns.length))
         guard let first = matches.first, first.range.location == 0 else { return [] }
         return matches.enumerated().map { i, m in
             let end = i + 1 < matches.count ? matches[i + 1].range.location : ns.length
@@ -335,10 +336,21 @@ enum LRC {
         guard let doc = try? XMLDocument(xmlString: spaced),
               let paragraphs = try? doc.nodes(forXPath: "//*[local-name()='p']") as? [XMLElement] else { return nil }
         func stamp(_ value: String?) -> String? {
-            // "2:30.140", "1:02:30.1" atau "150.14s" → "mm:ss.xx"
-            guard let value else { return nil }
-            return timeTag(value.replacingOccurrences(of: "s", with: "").split(separator: ":")
-                .reduce(0.0) { $0 * 60 + (Double($1) ?? 0) })
+            guard let raw = value?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
+            let seconds: Double?
+            if raw.hasSuffix("ms") {
+                seconds = Double(raw.dropLast(2)).map { $0 / 1000.0 }
+            } else {
+                let stripped = raw.hasSuffix("s") ? String(raw.dropLast()) : raw
+                let parts = stripped.split(separator: ":")
+                switch parts.count {
+                case 1: seconds = Double(parts[0])
+                case 2: seconds = Double(parts[0]).flatMap { m in Double(parts[1]).map { m * 60 + $0 } }
+                case 3: seconds = Double(parts[0]).flatMap { h in Double(parts[1]).flatMap { m in Double(parts[2]).map { h * 3600 + m * 60 + $0 } } }
+                default: seconds = nil
+                }
+            }
+            return seconds.map(timeTag)
         }
         var out: [String] = []
         for p in paragraphs {
@@ -346,13 +358,17 @@ enum LRC {
             let spans = (p.children ?? []).filter { ($0 as? XMLElement)?.name?.hasSuffix("span") == true }
             guard !spans.isEmpty else { out.append("[\(begin)]\(p.stringValue ?? "")"); continue }
             var line = "[\(begin)]"
+            var hasFirstSpan = false
             for node in p.children ?? [] {
                 if let span = node as? XMLElement {
                     if span.attribute(forName: "ttm:role")?.stringValue == "x-bg" { continue }
+                    hasFirstSpan = true
                     if let t = stamp(span.attribute(forName: "begin")?.stringValue) { line += "<\(t)>" }
                     line += span.stringValue ?? ""
                 } else if node.kind == .text {
-                    line += node.stringValue ?? ""
+                    let str = node.stringValue ?? ""
+                    if !hasFirstSpan && str.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { continue }
+                    line += str
                 }
             }
             if let end = stamp(p.attribute(forName: "end")?.stringValue) { line += "<\(end)>" }
@@ -409,6 +425,8 @@ final class LyricsProvider {
     }
 
     private struct LrclibRecord: Decodable {
+        let trackName: String?
+        let artistName: String?
         let duration: Double?
         let syncedLyrics: String?
     }
@@ -445,6 +463,19 @@ final class LyricsProvider {
     func forget(_ track: Track) {
         memory[track.id] = nil
         try? FileManager.default.removeItem(at: cacheFile(track))
+    }
+
+    /// Hapus semua cache lirik yang tersimpan di disk dan memori.
+    func clearAllCache() -> Int {
+        memory.removeAll()
+        guard let files = try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil) else { return 0 }
+        var count = 0
+        for file in files where file.pathExtension.lowercased() == "lrc" {
+            if (try? FileManager.default.removeItem(at: file)) != nil {
+                count += 1
+            }
+        }
+        return count
     }
 
     func lyrics(for track: Track) async -> LyricsResult {
@@ -517,12 +548,12 @@ final class LyricsProvider {
 
     private struct LrcredSearch: Decodable {
         struct Hit: Decodable {
-            let isrc: String
-            let title: String
-            let artist: String
+            let isrc: String?
+            let title: String?
+            let artist: String?
             let duration: Double?
         }
-        let hits: [Hit]
+        let hits: [Hit]?
     }
 
     /// Syarat API lrc.red: User-Agent memuat link dan email kontak.
@@ -535,19 +566,29 @@ final class LyricsProvider {
                                                          headers: Self.lrcredHeaders)
         let hits: [LrcredSearch.Hit]
         switch search {
-        case .ok(let value): hits = value.hits
+        case .ok(let value): hits = value.hits ?? []
         case .failed: return .failed
         case .notFound: return .none
         }
 
-        var remaining = hits.filter {
-            Self.normalize(Self.cleanTitle($0.title)) == Self.normalize(title)
-                && Self.normalize($0.artist).contains(Self.normalize(artist))
+        var remaining = hits.filter { hit in
+            guard let isrc = hit.isrc, !isrc.isEmpty,
+                  let hitTitle = hit.title, let hitArtist = hit.artist else { return false }
+            return Self.titlesMatch(hitTitle, title) && Self.artistsMatch(hitArtist, track.artist)
         }
         while let hit = Self.closest(remaining, to: track.duration, duration: { $0.duration ?? 0 }) {
-            remaining.removeAll { $0.isrc == hit.isrc }
-            // .lrc hanya ada untuk lagu yang sudah bersinkron; selain itu 404.
-            switch await get("https://lrc.red/s/\(hit.isrc).lrc", [:], headers: Self.lrcredHeaders) {
+            guard let isrc = hit.isrc else { break }
+            remaining.removeAll { $0.isrc == isrc }
+            // lrc.red menyimpan file dalam format Apple Music TTML (.ttml) per kata.
+            var ttmlHeaders = Self.lrcredHeaders
+            ttmlHeaders["Accept"] = "application/ttml+xml, text/xml, */*"
+            if case .ok(let data) = await get("https://lrc.red/s/\(isrc).ttml", [:], headers: ttmlHeaders),
+               let raw = String(data: data, encoding: .utf8),
+               let lrc = LRC.fromTTML(raw), LRC.parse(lrc).count >= 3 {
+                return .lrc(lrc)
+            }
+            // Fallback jika lagu hanya tersedia dalam .lrc
+            switch await get("https://lrc.red/s/\(isrc).lrc", [:], headers: Self.lrcredHeaders) {
             case .ok(let data):
                 if let lrc = String(data: data, encoding: .utf8), LRC.parse(lrc).count >= 3 { return .lrc(lrc) }
             case .failed: return .failed
@@ -730,7 +771,14 @@ final class LyricsProvider {
         for query in [["track_name": title, "artist_name": artist], ["q": "\(title) \(artist)"]] {
             let found: Fetch<[LrclibRecord]> = await getJSON("https://lrclib.net/api/search", query)
             switch found {
-            case .ok(let records): candidates += records.filter { !($0.syncedLyrics ?? "").isEmpty }
+            case .ok(let records):
+                let matching = records.filter { record in
+                    guard let synced = record.syncedLyrics, !synced.isEmpty else { return false }
+                    let recTitle = record.trackName ?? ""
+                    let recArtist = record.artistName ?? ""
+                    return Self.titlesMatch(recTitle, title) && Self.artistsMatch(recArtist, track.artist)
+                }
+                candidates += matching
             case .failed: failed = true
             case .notFound: break
             }
@@ -820,8 +868,52 @@ final class LyricsProvider {
         return cacheDir.appendingPathComponent(name + ".lrc")
     }
 
-    private static func primaryArtist(_ track: Track) -> String {
-        track.artist.components(separatedBy: ",")[0].trimmingCharacters(in: .whitespaces)
+    private static let artistSeparators = try! NSRegularExpression(
+        pattern: #"(?i)\s*(?:,|，|、|&|/|;|\s+(?:feat|ft|featuring|with|and|x)\.?\s*)\s*"#
+    )
+
+    static func primaryArtist(_ track: Track) -> String {
+        let raw = track.artist
+        let ns = raw as NSString
+        if let match = artistSeparators.firstMatch(in: raw, range: NSRange(location: 0, length: ns.length)) {
+            let primary = ns.substring(to: match.range.location).trimmingCharacters(in: .whitespaces)
+            if !primary.isEmpty { return primary }
+        }
+        return raw.trimmingCharacters(in: .whitespaces)
+    }
+
+    static func artistParts(_ text: String) -> Set<String> {
+        let ns = text as NSString
+        let matches = artistSeparators.matches(in: text, range: NSRange(location: 0, length: ns.length))
+        var parts: [String] = []
+        var last = 0
+        for m in matches {
+            let part = ns.substring(with: NSRange(location: last, length: m.range.location - last))
+            let norm = normalize(part)
+            if !norm.isEmpty { parts.append(norm) }
+            last = m.range.upperBound
+        }
+        let endPart = ns.substring(from: last)
+        let endNorm = normalize(endPart)
+        if !endNorm.isEmpty { parts.append(endNorm) }
+        return Set(parts)
+    }
+
+    static func artistsMatch(_ a: String, _ b: String) -> Bool {
+        let normA = normalize(a)
+        let normB = normalize(b)
+        if normA.isEmpty || normB.isEmpty { return false }
+        if normA == normB || normA.contains(normB) || normB.contains(normA) { return true }
+        let partsA = artistParts(a)
+        let partsB = artistParts(b)
+        return !partsA.isDisjoint(with: partsB)
+    }
+
+    static func titlesMatch(_ a: String, _ b: String) -> Bool {
+        let cleanA = normalize(cleanTitle(a))
+        let cleanB = normalize(cleanTitle(b))
+        if cleanA.isEmpty || cleanB.isEmpty { return false }
+        return cleanA == cleanB || cleanA.contains(cleanB) || cleanB.contains(cleanA)
     }
 
     /// Untuk membandingkan judul/nama: huruf kecil, tanpa aksen dan tanda baca.
@@ -1964,6 +2056,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         schedule(every: 1.0 / 30) { $0.render() }
         poll()
+
+        Task {
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            await AppUpdater.check(manual: false)
+        }
     }
 
     private func schedule(every interval: TimeInterval, _ body: @escaping (AppDelegate) -> Void) {
@@ -2430,6 +2527,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hint.indentationLevel = 1
         submenu.addItem(hint)
 
+        submenu.addItem(.separator())
+        header(L("Penyimpanan", "Storage"))
+        let clearItem = NSMenuItem(title: L("Hapus semua cache lirik…", "Clear all lyrics cache…"),
+                                   action: #selector(clearCache), keyEquivalent: "")
+        clearItem.target = self
+        submenu.addItem(clearItem)
+
+        submenu.addItem(.separator())
+        header(L("Pembaruan", "Updates"))
+        let updateItem = NSMenuItem(title: L("Periksa pembaruan…", "Check for updates…"),
+                                    action: #selector(checkForUpdatesManual), keyEquivalent: "")
+        updateItem.target = self
+        submenu.addItem(updateItem)
+
         let item = NSMenuItem(title: L("Pengaturan", "Settings"), action: nil, keyEquivalent: "")
         item.submenu = submenu
         return item
@@ -2617,6 +2728,170 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let alert = NSAlert(error: error)
             alert.messageText = L("Gagal mengubah pengaturan buka saat login", "Couldn't change the open at login setting")
             alert.runModal()
+        }
+    }
+
+    @objc private func clearCache() {
+        let alert = NSAlert()
+        alert.messageText = L("Hapus Semua Cache Lirik?", "Clear All Lyrics Cache?")
+        alert.informativeText = L("Semua file lirik yang tersimpan di Mac akan dihapus dan dicari ulang saat lagu diputar.",
+                                  "All cached lyrics files will be deleted and fetched again when played.")
+        alert.addButton(withTitle: L("Hapus", "Clear"))
+        alert.addButton(withTitle: L("Batal", "Cancel"))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+
+        let count = provider.clearAllCache()
+        lines = []
+        if let track { loadLyrics(for: track) }
+
+        let done = NSAlert()
+        done.messageText = L("Cache Dibersihkan", "Cache Cleared")
+        done.informativeText = L("Berhasil menghapus \(count) file lirik dari cache.",
+                                 "Successfully removed \(count) cached lyric files.")
+        done.runModal()
+    }
+
+    @objc private func checkForUpdatesManual() {
+        Task { @MainActor in
+            await AppUpdater.check(manual: true)
+        }
+    }
+}
+
+// MARK: - Pembaruan Otomatis (GitHub Releases)
+
+enum AppUpdater {
+    private struct Release: Decodable {
+        struct Asset: Decodable {
+            let name: String
+            let browser_download_url: String
+        }
+        let tag_name: String
+        let body: String?
+        let html_url: String
+        let assets: [Asset]
+    }
+
+    static var currentVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+
+    static func isNewer(release: String, current: String) -> Bool {
+        let cleanRelease = release.trimmingCharacters(in: CharacterSet(charactersIn: "vV ")).split(separator: ".").compactMap { Int($0) }
+        let cleanCurrent = current.trimmingCharacters(in: CharacterSet(charactersIn: "vV ")).split(separator: ".").compactMap { Int($0) }
+        let count = max(cleanRelease.count, cleanCurrent.count)
+        for i in 0..<count {
+            let r = i < cleanRelease.count ? cleanRelease[i] : 0
+            let c = i < cleanCurrent.count ? cleanCurrent[i] : 0
+            if r > c { return true }
+            if r < c { return false }
+        }
+        return false
+    }
+
+    @MainActor
+    static func check(manual: Bool) async {
+        guard let url = URL(string: "https://api.github.com/repos/kintarous/lyricsbar/releases/latest") else { return }
+        var request = URLRequest(url: url)
+        request.setValue("Lyricsbar (+https://github.com/kintarous/lyricsbar)", forHTTPHeaderField: "User-Agent")
+        request.setValue("application/vnd.github.v3+json", forHTTPHeaderField: "Accept")
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let release = try? JSONDecoder().decode(Release.self, from: data) else {
+            if manual {
+                let alert = NSAlert()
+                alert.messageText = L("Gagal Memeriksa Pembaruan", "Failed to Check for Updates")
+                alert.informativeText = L("Tidak dapat terhubung ke GitHub. Periksa koneksi internetmu.",
+                                          "Couldn't connect to GitHub. Please check your internet connection.")
+                alert.runModal()
+            }
+            return
+        }
+
+        let newVersion = release.tag_name.trimmingCharacters(in: CharacterSet(charactersIn: "vV "))
+        if isNewer(release: release.tag_name, current: currentVersion) {
+            let alert = NSAlert()
+            alert.messageText = L("Pembaruan Tersedia: Lyricsbar \(newVersion)", "Update Available: Lyricsbar \(newVersion)")
+            var notes = release.body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            if notes.count > 400 { notes = String(notes.prefix(400)) + "…" }
+            let info = L("Versi saat ini: \(currentVersion)\nVersi baru: \(newVersion)\n\n\(notes)",
+                         "Current version: \(currentVersion)\nNew version: \(newVersion)\n\n\(notes)")
+            alert.informativeText = info
+            alert.addButton(withTitle: L("Perbarui Sekarang", "Update Now"))
+            alert.addButton(withTitle: L("Nanti", "Later"))
+            alert.addButton(withTitle: L("Buka di GitHub", "Open on GitHub"))
+
+            let choice = alert.runModal()
+            if choice == .alertFirstButtonReturn {
+                await performUpdate(release)
+            } else if choice == .alertThirdButtonReturn {
+                if let releaseURL = URL(string: release.html_url) {
+                    NSWorkspace.shared.open(releaseURL)
+                }
+            }
+        } else if manual {
+            let alert = NSAlert()
+            alert.messageText = L("Lyricsbar Sudah Versi Terbaru", "Lyricsbar is Up to Date")
+            alert.informativeText = L("Kamu sedang menggunakan versi terbaru (v\(currentVersion)).",
+                                      "You are using the latest version (v\(currentVersion)).")
+            alert.runModal()
+        }
+    }
+
+    @MainActor
+    private static func performUpdate(_ release: Release) async {
+        guard let zipAsset = release.assets.first(where: { $0.name.hasSuffix(".zip") }),
+              let downloadURL = URL(string: zipAsset.browser_download_url) else {
+            if let releaseURL = URL(string: release.html_url) {
+                NSWorkspace.shared.open(releaseURL)
+            }
+            return
+        }
+
+        do {
+            let (tempZipURL, _) = try await URLSession.shared.download(from: downloadURL)
+            let updateDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("LyricsbarUpdate-\(UUID().uuidString)")
+            try FileManager.default.createDirectory(at: updateDir, withIntermediateDirectories: true)
+            let zipPath = updateDir.appendingPathComponent("update.zip").path
+            try FileManager.default.moveItem(at: tempZipURL, to: URL(fileURLWithPath: zipPath))
+
+            let ditto = Process()
+            ditto.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+            ditto.arguments = ["-x", "-k", zipPath, updateDir.path]
+            try ditto.run()
+            ditto.waitUntilExit()
+
+            let newAppURL = updateDir.appendingPathComponent("Lyricsbar.app")
+            guard FileManager.default.fileExists(atPath: newAppURL.path) else {
+                throw NSError(domain: "AppUpdater", code: 1, userInfo: [NSLocalizedDescriptionKey: "Bundle Lyricsbar.app tidak ditemukan di dalam paket rilis."])
+            }
+
+            let xattr = Process()
+            xattr.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+            xattr.arguments = ["-dr", "com.apple.quarantine", newAppURL.path]
+            try? xattr.run()
+            xattr.waitUntilExit()
+
+            let destPath = Bundle.main.bundleURL.path
+            let srcPath = newAppURL.path
+
+            let script = "sleep 1.0 && rm -rf \"\(destPath)\" && cp -R \"\(srcPath)\" \"\(destPath)\" && open \"\(destPath)\""
+            let relauncher = Process()
+            relauncher.executableURL = URL(fileURLWithPath: "/bin/sh")
+            relauncher.arguments = ["-c", script]
+            try relauncher.run()
+
+            NSApp.terminate(nil)
+        } catch {
+            let err = NSAlert()
+            err.messageText = L("Gagal Memperbarui Otomatis", "Automatic Update Failed")
+            err.informativeText = error.localizedDescription + "\n\n" + L("Buka halaman GitHub untuk mengunduh manual?", "Open GitHub page to download manually?")
+            err.addButton(withTitle: L("Buka GitHub", "Open GitHub"))
+            err.addButton(withTitle: L("Tutup", "Close"))
+            if err.runModal() == .alertFirstButtonReturn, let releaseURL = URL(string: release.html_url) {
+                NSWorkspace.shared.open(releaseURL)
+            }
         }
     }
 }

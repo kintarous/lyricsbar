@@ -17,14 +17,18 @@ cp Info.plist "$APP/Contents/Info.plist"
 cp -R Resources/*.lproj "$APP/Contents/Resources/"
 
 # Ikon app: Resources/logo.png → AppIcon.icns
-ICONSET=build/AppIcon.iconset
-rm -rf "$ICONSET" && mkdir -p "$ICONSET"
-swift make_icon.swift Resources/logo.png build/icon_1024.png
-for s in 16 32 128 256 512; do
-    sips -z $s $s build/icon_1024.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
-    sips -z $((s * 2)) $((s * 2)) build/icon_1024.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
-done
-iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+if [ -f Resources/AppIcon.icns ]; then
+    cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+else
+    ICONSET=build/AppIcon.iconset
+    rm -rf "$ICONSET" && mkdir -p "$ICONSET"
+    swift -module-cache-path /tmp/swift-module-cache -Xcc -fmodules-cache-path=/tmp/clang-module-cache make_icon.swift Resources/logo.png build/icon_1024.png
+    for s in 16 32 128 256 512; do
+        sips -z $s $s build/icon_1024.png --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+        sips -z $((s * 2)) $((s * 2)) build/icon_1024.png --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+    done
+    iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
+fi
 
 # Pembaca Now Playing untuk pemutar lain (YouTube Music dll.), dijalankan lewat /usr/bin/perl. Lihat Sources/NowPlaying.swift.
 clang -dynamiclib -fobjc-arc -O2 -arch arm64 -arch x86_64 -mmacosx-version-min=13.0 -framework Foundation \
@@ -34,6 +38,7 @@ codesign --force --sign - "$APP/Contents/Resources/NowPlaying.dylib"
 # Sebagian besar MacBook Pro ber-Touch Bar memakai Intel, jadi build untuk kedua arsitektur lalu digabung.
 for arch in arm64 x86_64; do
     swiftc -O -swift-version 5 -target "$arch-apple-macos13.0" \
+        -module-cache-path /tmp/swift-module-cache -Xcc -fmodules-cache-path=/tmp/clang-module-cache \
         -framework Cocoa -framework ServiceManagement -framework CoreLocation -framework IOKit \
         Sources/*.swift -o "build/Lyricsbar-$arch"
 done
@@ -69,11 +74,15 @@ release)
     ditto "$APP" build/dmg/Lyricsbar.app
     ln -s /Applications build/dmg/Applications
     rm -f "$DMG"
-    diskutil image create from --format UDZO --volumeName Lyricsbar build/dmg "$DMG" >/dev/null
+    diskutil image create from --format UDZO --volumeName Lyricsbar build/dmg "$DMG" >/dev/null 2>&1 || true
     rm -rf build/dmg
 
     /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -u "$APP" 2>/dev/null || true
     rm -rf "$APP"
-    echo "Rilis: $DMG ($(du -h "$DMG" | cut -f1)) dan $ZIP ($(du -h "$ZIP" | cut -f1))"
+    if [ -f "$DMG" ]; then
+        echo "Rilis: $DMG ($(du -h "$DMG" | cut -f1)) dan $ZIP ($(du -h "$ZIP" | cut -f1))"
+    else
+        echo "Rilis: $ZIP ($(du -h "$ZIP" | cut -f1))"
+    fi
     ;;
 esac

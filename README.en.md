@@ -46,6 +46,7 @@ For Spotify, Apple Music, and YouTube Music, on Macs with or without a Touch Bar
 |  |  |
 |---|---|
 | 🎤 **Synced lyrics** | Lines change right on time, with a Spotify-style slide-up animation, a fade, or no animation |
+| 🎙️ **Karaoke** | Words light up one by one like Apple Music, with three "breathing" dots during instrumental breaks. Lyrics are searched in 7 sources at once, and word-timed ones win |
 | 🎛️ **Mini Control Strip** | Brightness, volume, mute, ⏮ ⏯ ⏭, right on the Touch Bar |
 | 🫧 **Liquid Glass sliders** | A glass capsule knob that grows, turns clear like a lens, and stretches as you drag. Its color follows your system accent color |
 | 😀 **Emoji** | One tap brings up the built-in macOS emoji picker and word suggestions |
@@ -198,9 +199,10 @@ Every setting lives in the **♪** icon in the menu bar. Can't see the icon? Ope
 |---|---|
 | Show lyrics in menu bar | Only on Macs without a Touch Bar: turns the menu bar lyrics on or off (on by default) |
 | Offset −0.5 / +0.5 / Reset | Shifts the lyrics timing for this song. **+** = earlier, **−** = later |
+| View lyrics and submitter… | Unison lyrics only: opens the song's page and who submitted the lyrics |
 | Search lyrics again | Looks up the lyrics for this song again |
 | Open your lyrics folder… | Where you put your own `.lrc` files |
-| Lyrics animation | Slide up, fade, or no animation |
+| Lyrics animation | Slide up, fade, no animation, or Karaoke (songs without word timing still slide up) |
 | Lyrics alignment | Left, center, or right, separately for the Touch Bar and the menu bar |
 | Idle wallpaper | Pick a theme (it previews right away), your own text, and the weather location |
 | Language | Same as system, Bahasa Indonesia, or English |
@@ -235,13 +237,20 @@ No setup or extra permissions needed. The play/pause, previous, and next buttons
 
 ## Where do the lyrics come from?
 
-Lyricsbar looks for synced lyrics in this order:
+Local files always come first: `~/Music/Lyricsbar/` (and `~/Music/LyricsX/` if you used LyricsX before), named `Title - Artist.lrc`.
 
-1. 📁 **Local files**: `~/Music/Lyricsbar/` (and `~/Music/LyricsX/` if you used LyricsX before), named `Title - Artist.lrc`
-2. 🌐 [**LRCLIB**](https://lrclib.net): a free, open lyrics database
-3. 🌏 **NetEase Cloud Music**: a fallback with many Asian songs
+Otherwise all online sources are searched **at the same time**, and Lyricsbar picks the best result: lyrics with word-level timing (for the Karaoke animation) first, then line-synced lyrics. Between two of the same kind, the order below decides:
 
-Official Spotify and Apple Music lyrics are **not** used, because there's no official way to access them.
+1. 🎤 [**lrc.red**](https://lrc.red): lyrics with word-level timing
+2. 🍎 [**BetterLyrics**](https://github.com/better-lyrics/better-lyrics): word-timed lyrics from the Better Lyrics server
+3. ➕ **LyricsPlus**: word-timed lyrics from Apple Music, QQ Music, or Deezer through the LyricsPlus server
+4. 🤝 [**Unison**](https://unison.betterlyrics.org): community lyrics from Better Lyrics, often with word-level timing. The submitter's name shows in the ♪ menu, and **View lyrics and submitter…** opens the song's page
+5. 🌐 [**LRCLIB**](https://lrclib.net): a free, open lyrics database
+6. 🎵 **KuGou**: a Chinese music service with many Asian songs
+7. 🌏 **NetEase Cloud Music**: a fallback with many Asian songs
+
+> [!NOTE]
+> BetterLyrics and LyricsPlus are unofficial third-party servers that can stop working at any time. If one is down, the other sources are still used.
 
 > [!TIP]
 > Can't find your song? Make your own `.lrc` file (for example with [LRCGET](https://github.com/tranxuanthang/lrcget)), save it via ♪ › **Open your lyrics folder…**, then click **Search lyrics again**. Even better, upload it to LRCLIB so it helps others too.
@@ -249,7 +258,7 @@ Official Spotify and Apple Music lyrics are **not** used, because there's no off
 ## Privacy
 
 - No servers, analytics, or data collection.
-- To find lyrics, the song's **title, artist, album, and duration** are sent to LRCLIB and NetEase. Lyrics that are found are saved in `~/Library/Caches/local.touchbarlyrics/`.
+- To find lyrics, the song's **title, artist, album, and duration** are sent to all the online sources above. Lyrics that are found are saved in `~/Library/Caches/local.touchbarlyrics/`.
 - If you use the **Today's weather** wallpaper, your MacBook's location (rounded to about 1 km) is sent to [Open-Meteo](https://open-meteo.com) to get the weather, and the city name is looked up through Apple. You can also set a city yourself in the ♪ menu without granting Location access.
 - The permission Lyricsbar asks for is **Automation**, to read the song and playback position from Spotify/Music. Brightness and volume work without extra permissions. **Location** is only requested when you choose the weather wallpaper with automatic location.
 - Other players are read from macOS Now Playing without extra permissions, and that data goes nowhere except the lyrics search above.
@@ -302,6 +311,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Version | Changes |
 |---|---|
+| [**1.9**](https://github.com/kintarous/lyricsbar/releases/tag/v1.9) | New lyrics animation: Apple Music-style Karaoke. Words light up one by one, lines switch instantly, and three "breathing" dots show during instrumental breaks. Lyrics are now searched in 7 sources at once (lrc.red, BetterLyrics, LyricsPlus, Unison, LRCLIB, KuGou, NetEase), and the best is picked automatically: word-timed first, then line-synced |
 | [**1.8**](https://github.com/kintarous/lyricsbar/releases/tag/v1.8) | Lyrics for other players through macOS Now Playing: YouTube Music in Meiro, Pear Desktop, or a browser, and more. The Touch Bar play/pause and track buttons work with them too, and YouTube-style titles are tidied up so the lyrics are found |
 | [**1.7.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.2) | The ♪ icon in the menu bar moved to the right of the lyrics, so it stays put when the lyrics appear or hide. Lyrics alignment is now set separately for the Touch Bar and the menu bar, in one ♪ › Lyrics alignment menu |
 | [**1.7.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.1) | The menu bar lyrics hide when a song is paused or stopped for more than 5 seconds, leaving just the ♪ icon, so they don't take up room and push other icons aside. The lyrics come back as soon as the song plays |
@@ -317,7 +327,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 ## Credits
 
-- Lyrics: [LRCLIB](https://lrclib.net) and NetEase Cloud Music
+- Lyrics: [lrc.red](https://lrc.red), BetterLyrics, LyricsPlus, [Unison](https://unison.betterlyrics.org) and its submitters, [LRCLIB](https://lrclib.net), KuGou, and NetEase Cloud Music
 - Weather: [Open-Meteo](https://open-meteo.com)
 - App icon: <a href="https://www.flaticon.com/free-icon/music-book_4675527" title="music book icons">Music book icons created by Magnific - Flaticon</a> (Flaticon License, free with attribution)
 

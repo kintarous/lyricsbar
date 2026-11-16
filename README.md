@@ -46,6 +46,7 @@ Untuk Spotify, Apple Music, dan YouTube Music, di Mac dengan atau tanpa Touch Ba
 |  |  |
 |---|---|
 | 🎤 **Lirik sinkron** | Berganti baris tepat waktu, dengan animasi geser ke atas ala Spotify, pudar, atau tanpa animasi |
+| 🎙️ **Karaoke** | Kata-kata menyala satu per satu ala Apple Music, dan tiga titik "bernapas" saat jeda instrumental. Lirik dicari dari 7 sumber sekaligus, dan yang punya timing per kata dipilih lebih dulu |
 | 🎛️ **Control Strip mini** | Kecerahan, volume, mute, ⏮ ⏯ ⏭, langsung dari Touch Bar |
 | 🫧 **Slider Liquid Glass** | Knob kapsul kaca yang membesar, bening seperti lensa, dan melar saat digeser. Warnanya mengikuti warna aksen sistem |
 | 😀 **Emoji** | Satu ketukan untuk memunculkan pemilih emoji dan saran kata bawaan macOS |
@@ -198,9 +199,10 @@ Semua pengaturan ada di ikon **♪** di menu bar. Ikonnya tidak kelihatan? Buka 
 |---|---|
 | Tampilkan lirik di menu bar | Hanya di Mac tanpa Touch Bar: menyalakan atau mematikan lirik di menu bar (bawaannya menyala) |
 | Offset −0,5 / +0,5 / Reset | Menggeser waktu lirik lagu ini. **+** = lebih awal, **−** = lebih lambat |
+| Lihat lirik dan pengirimnya… | Hanya untuk lirik dari Unison: membuka halaman lagunya dan pengirim liriknya |
 | Cari ulang lirik | Mencari lirik lagu ini lagi |
 | Buka folder lirik sendiri… | Tempat menaruh file `.lrc` buatanmu |
-| Animasi lirik | Geser ke atas, pudar, atau tanpa animasi |
+| Animasi lirik | Geser ke atas, pudar, tanpa animasi, atau Karaoke (lagu tanpa timing per kata tetap bergeser ke atas) |
 | Perataan lirik | Rata kiri, tengah, atau kanan, terpisah untuk Touch Bar dan menu bar |
 | Wallpaper saat idle | Pilih tema (langsung dipratinjau), teks sendiri, dan lokasi cuaca |
 | Bahasa | Ikuti sistem, Bahasa Indonesia, atau English |
@@ -235,13 +237,20 @@ Tidak perlu pengaturan atau izin tambahan. Tombol putar/jeda, lagu sebelumnya, d
 
 ## Dari mana liriknya?
 
-Lyricsbar mencari lirik bersinkron berurutan dari:
+File lokal selalu dipakai lebih dulu: `~/Music/Lyricsbar/` (dan `~/Music/LyricsX/` kalau sebelumnya kamu memakai LyricsX), dengan nama file `Judul - Artis.lrc`.
 
-1. 📁 **File lokal**: `~/Music/Lyricsbar/` (dan `~/Music/LyricsX/` kalau sebelumnya kamu memakai LyricsX), dengan nama file `Judul - Artis.lrc`
-2. 🌐 [**LRCLIB**](https://lrclib.net): database lirik terbuka dan gratis
-3. 🌏 **NetEase Cloud Music**: cadangan, dan banyak lagu Indonesia ada di sini
+Kalau tidak ada, semua sumber online dicari **bersamaan**, lalu Lyricsbar memilih yang terbaik: lirik dengan timing per kata (untuk animasi Karaoke) lebih dulu, baru lirik per baris. Kalau sama-sama per kata atau sama-sama per baris, urutan di bawah yang menentukan:
 
-Lirik resmi Spotify dan Apple Music **tidak** dipakai, karena tidak ada cara resmi untuk mengaksesnya.
+1. 🎤 [**lrc.red**](https://lrc.red): lirik dengan timing per kata
+2. 🍎 [**BetterLyrics**](https://github.com/better-lyrics/better-lyrics): lirik per kata dari server Better Lyrics
+3. ➕ **LyricsPlus**: lirik per kata dari Apple Music, QQ Music, atau Deezer lewat server LyricsPlus
+4. 🤝 [**Unison**](https://unison.betterlyrics.org): lirik komunitas Better Lyrics, sering dengan timing per kata. Nama pengirimnya tampil di menu ♪, dan **Lihat lirik dan pengirimnya…** membuka halaman lagunya
+5. 🌐 [**LRCLIB**](https://lrclib.net): database lirik terbuka dan gratis
+6. 🎵 **KuGou**: layanan musik Tiongkok, banyak lagu Asia
+7. 🌏 **NetEase Cloud Music**: cadangan, dan banyak lagu Indonesia ada di sini
+
+> [!NOTE]
+> BetterLyrics dan LyricsPlus adalah server pihak ketiga yang tidak resmi dan bisa berhenti sewaktu-waktu. Kalau salah satunya mati, sumber lain tetap dipakai.
 
 > [!TIP]
 > Lagu kamu tidak ketemu? Buat file `.lrc` sendiri (misalnya dengan [LRCGET](https://github.com/tranxuanthang/lrcget)), simpan lewat menu ♪ › **Buka folder lirik sendiri…**, lalu klik **Cari ulang lirik**. Lebih baik lagi, unggah ke LRCLIB supaya orang lain ikut terbantu.
@@ -249,7 +258,7 @@ Lirik resmi Spotify dan Apple Music **tidak** dipakai, karena tidak ada cara res
 ## Privasi
 
 - Tidak ada server, analytics, atau pengumpulan data.
-- Untuk mencari lirik, **judul, artis, album, dan durasi** lagu dikirim ke LRCLIB dan NetEase. Lirik yang ketemu disimpan di `~/Library/Caches/local.touchbarlyrics/`.
+- Untuk mencari lirik, **judul, artis, album, dan durasi** lagu dikirim ke semua sumber online di atas. Lirik yang ketemu disimpan di `~/Library/Caches/local.touchbarlyrics/`.
 - Kalau kamu memakai wallpaper **Cuaca hari ini**, lokasi MacBook (dibulatkan sekitar 1 km) dikirim ke [Open-Meteo](https://open-meteo.com) untuk mengambil cuaca, dan nama kotanya dicari lewat Apple. Kamu juga bisa mengisi kota sendiri lewat menu ♪ tanpa memberi izin Lokasi.
 - Izin yang diminta adalah **Automation**, untuk membaca lagu dan posisi pemutaran dari Spotify/Music. Kecerahan dan volume diatur tanpa izin tambahan. Izin **Lokasi** hanya diminta saat kamu memilih wallpaper cuaca dengan lokasi otomatis.
 - Pemutar lain dibaca dari Now Playing macOS tanpa izin tambahan, dan datanya tidak dikirim ke mana pun selain pencarian lirik di atas.
@@ -302,6 +311,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 | Versi | Perubahan |
 |---|---|
+| [**1.9**](https://github.com/kintarous/lyricsbar/releases/tag/v1.9) | Animasi lirik baru: Karaoke ala Apple Music. Kata-kata menyala satu per satu, ganti baris langsung, dan tiga titik "bernapas" saat jeda instrumental. Lirik kini dicari dari 7 sumber sekaligus (lrc.red, BetterLyrics, LyricsPlus, Unison, LRCLIB, KuGou, NetEase), dan yang terbaik dipilih otomatis: timing per kata lebih dulu, baru per baris |
 | [**1.8**](https://github.com/kintarous/lyricsbar/releases/tag/v1.8) | Lirik untuk pemutar lain lewat Now Playing macOS: YouTube Music di Meiro, Pear Desktop, atau browser, dan pemutar lain. Tombol putar/jeda dan ganti lagu di Touch Bar ikut berfungsi, dan judul ala YouTube dirapikan supaya liriknya ketemu |
 | [**1.7.2**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.2) | Ikon ♪ di menu bar pindah ke sebelah kanan lirik, jadi posisinya tidak bergeser saat lirik muncul atau disembunyikan. Perataan lirik kini diatur terpisah untuk Touch Bar dan menu bar, dalam satu menu ♪ › Perataan lirik |
 | [**1.7.1**](https://github.com/kintarous/lyricsbar/releases/tag/v1.7.1) | Lirik di menu bar disembunyikan saat lagu dijeda atau berhenti lebih dari 5 detik, tinggal ikon ♪, supaya tidak memakan tempat dan mendorong ikon lain. Liriknya muncul lagi begitu lagu diputar |
@@ -317,7 +327,7 @@ build/Lyricsbar.app/Contents/MacOS/Lyricsbar --render-wallpaper dino 4 10 0.06 d
 
 ## Kredit
 
-- Lirik: [LRCLIB](https://lrclib.net) dan NetEase Cloud Music
+- Lirik: [lrc.red](https://lrc.red), BetterLyrics, LyricsPlus, [Unison](https://unison.betterlyrics.org) dan para pengirimnya, [LRCLIB](https://lrclib.net), KuGou, dan NetEase Cloud Music
 - Cuaca: [Open-Meteo](https://open-meteo.com)
 - Ikon app: <a href="https://www.flaticon.com/free-icon/music-book_4675527" title="music book icons">Music book icons created by Magnific - Flaticon</a> (Flaticon License, gratis dengan atribusi)
 

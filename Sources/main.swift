@@ -256,10 +256,27 @@ struct PlaybackClock {
 struct LyricLine {
     let time: Double
     let text: String
+    /// Timing per kata dari LRC yang diperluas ("<mm:ss.xx>kata "); segmen terakhir biasanya kosong = akhir baris.
+    var words: [(time: Double, text: String)] = []
+
+    /// Berapa karakter (UTF-16, boleh pecahan) dari awal baris yang sudah dinyanyikan pada waktu t;
+    /// nil kalau tanpa timing per kata.
+    func sungLength(at t: Double) -> Double? {
+        guard !words.isEmpty else { return nil }
+        var sung = 0.0
+        for (i, word) in words.enumerated() where t >= word.time {
+            let count = Double(word.text.utf16.count)
+            let end = i + 1 < words.count ? words[i + 1].time : word.time
+            sung = Double(words[..<i].reduce(0) { $0 + $1.text.utf16.count })
+                + (end > word.time ? count * min(1, (t - word.time) / (end - word.time)) : count)
+        }
+        return min(Double(text.utf16.count), sung)
+    }
 }
 
 enum LRC {
     private static let stamp = try! NSRegularExpression(pattern: #"\[(\d+):(\d+(?:[.:]\d+)?)\]"#)
+    private static let wordStamp = try! NSRegularExpression(pattern: #"<(\d+):(\d+(?:[.:]\d+)?)>"#)
     /// Baris kredit di lirik NetEase ("作词 : …") bukan bagian lirik.
     private static let credit = try! NSRegularExpression(pattern: #"^(作词|作曲|编曲|制作人|词|曲|混音|母带|和声|吉他|贝斯|鼓)\s*[:：]"#)
 
@@ -269,29 +286,99 @@ enum LRC {
             let ns = raw as NSString
             let matches = stamp.matches(in: raw, range: NSRange(location: 0, length: ns.length))
             guard let first = matches.first, first.range.location == 0, let last = matches.last else { continue }
-            let text = ns.substring(from: last.range.upperBound).trimmingCharacters(in: .whitespaces)
+            let rest = ns.substring(from: last.range.upperBound)
+            let words = Self.words(rest)
+            let text = (words.isEmpty ? rest : words.map(\.text).joined()).trimmingCharacters(in: .whitespaces)
             // File LyricsX (.lrcx) menyimpan terjemahan dan timing per kata sebagai "[waktu][tr:…]"; lewati.
             if text.hasPrefix("[") { continue }
             if credit.firstMatch(in: text, range: NSRange(location: 0, length: (text as NSString).length)) != nil { continue }
             for m in matches {
-                let minutes = Double(ns.substring(with: m.range(at: 1))) ?? 0
-                let seconds = Double(ns.substring(with: m.range(at: 2)).replacingOccurrences(of: ":", with: ".")) ?? 0
-                lines.append(LyricLine(time: minutes * 60 + seconds, text: text))
+                lines.append(LyricLine(time: seconds(m, in: ns), text: text, words: words))
             }
         }
         return lines.sorted { $0.time < $1.time }
     }
 
-    /// Tag "[re:…]" dipakai untuk mencatat sumber lirik di cache.
-    static func sourceTag(_ source: String) -> String? {
-        guard let range = source.range(of: #"(?m)^\[re:([^\]]+)\]"#, options: .regularExpression) else { return nil }
-        return String(source[range].dropFirst(4).dropLast())
+    private static func seconds(_ m: NSTextCheckingResult, in ns: NSString) -> Double {
+        let minutes = Double(ns.substring(with: m.range(at: 1))) ?? 0
+        let seconds = Double(ns.substring(with: m.range(at: 2)).replacingOccurrences(of: ":", with: ".")) ?? 0
+        return minutes * 60 + seconds
+    }
+
+    /// "<00:01.00>Is <00:01.40>this <00:02.10>" → [(1.0, "Is "), (1.4, "this "), (2.1, "")]; kosong kalau tanpa timing per kata.
+    static func words(_ text: String) -> [(time: Double, text: String)] {
+        let ns = text as NSString
+        let matches = wordStamp.matches(in: text, range: NSRange(location: 0, length: ns.length))
+        guard let first = matches.first, first.range.location == 0 else { return [] }
+        return matches.enumerated().map { i, m in
+            let end = i + 1 < matches.count ? matches[i + 1].range.location : ns.length
+            return (seconds(m, in: ns), ns.substring(with: NSRange(location: m.range.upperBound, length: end - m.range.upperBound)))
+        }
+    }
+
+    /// Tag "[re:…]" mencatat sumber lirik di cache, "[link:…]" halaman kreditnya (wajib untuk Unison).
+    static func tag(_ name: String, in source: String) -> String? {
+        guard let range = source.range(of: "(?m)^\\[\(name):([^\\]]+)\\]", options: .regularExpression) else { return nil }
+        return String(source[range].dropFirst(name.count + 2).dropLast())
+    }
+
+    /// Detik → "mm:ss.xx" untuk tag waktu LRC.
+    static func timeTag(_ t: Double) -> String {
+        String(format: "%02d:%05.2f", Int(t) / 60, t.truncatingRemainder(dividingBy: 60))
+    }
+
+    /// TTML (Apple Music / Unison) → LRC dengan timing per kata, supaya alur parse dan cache tetap sama.
+    /// Vokal latar (ttm:role="x-bg") dilewati.
+    static func fromTTML(_ ttml: String) -> String? {
+        // XMLDocument membuang teks yang isinya hanya spasi, jadi spasi antarkata dipindah ke dalam span sebelumnya.
+        let spaced = ttml.replacingOccurrences(of: #"</span>(\s+)<"#, with: " </span><", options: .regularExpression)
+        guard let doc = try? XMLDocument(xmlString: spaced),
+              let paragraphs = try? doc.nodes(forXPath: "//*[local-name()='p']") as? [XMLElement] else { return nil }
+        func stamp(_ value: String?) -> String? {
+            // "2:30.140", "1:02:30.1" atau "150.14s" → "mm:ss.xx"
+            guard let value else { return nil }
+            return timeTag(value.replacingOccurrences(of: "s", with: "").split(separator: ":")
+                .reduce(0.0) { $0 * 60 + (Double($1) ?? 0) })
+        }
+        var out: [String] = []
+        for p in paragraphs {
+            guard let begin = stamp(p.attribute(forName: "begin")?.stringValue) else { continue }
+            let spans = (p.children ?? []).filter { ($0 as? XMLElement)?.name?.hasSuffix("span") == true }
+            guard !spans.isEmpty else { out.append("[\(begin)]\(p.stringValue ?? "")"); continue }
+            var line = "[\(begin)]"
+            for node in p.children ?? [] {
+                if let span = node as? XMLElement {
+                    if span.attribute(forName: "ttm:role")?.stringValue == "x-bg" { continue }
+                    if let t = stamp(span.attribute(forName: "begin")?.stringValue) { line += "<\(t)>" }
+                    line += span.stringValue ?? ""
+                } else if node.kind == .text {
+                    line += node.stringValue ?? ""
+                }
+            }
+            if let end = stamp(p.attribute(forName: "end")?.stringValue) { line += "<\(end)>" }
+            out.append(line)
+        }
+        return out.isEmpty ? nil : out.joined(separator: "\n")
     }
 }
 
 struct Lyrics {
     let lines: [LyricLine]
     let source: String
+    /// Halaman kredit lirik (Unison mewajibkan tautan ke lagu dan pengirimnya).
+    var link: URL? = nil
+
+    init(lines: [LyricLine], source: String, link: URL? = nil) {
+        self.lines = lines
+        self.source = source
+        self.link = link
+    }
+
+    /// Dari isi file cache (LRC dengan tag [re:] dan [link:]).
+    init(cached lrc: String, fallbackSource: String) {
+        self.init(lines: LRC.parse(lrc), source: LRC.tag("re", in: lrc) ?? fallbackSource,
+                  link: LRC.tag("link", in: lrc).flatMap(URL.init(string:)))
+    }
 }
 
 enum LyricsResult {
@@ -344,7 +431,7 @@ final class LyricsProvider {
     }
 
     /// Sumber online yang dipakai, berurutan (mode uji bisa membatasinya).
-    var onlineSources = ["LRCLIB", "NetEase"]
+    var onlineSources = ["lrc.red", "BetterLyrics", "LyricsPlus", "Unison", "LRCLIB", "KuGou", "NetEase"]
     private var memory: [String: LyricsResult] = [:]
     /// Tanpa cookie: NetEase memberi hasil pencarian acak kalau request membawa cookie dari kunjungan sebelumnya.
     private let session = URLSession(configuration: .ephemeral)
@@ -365,30 +452,49 @@ final class LyricsProvider {
         if let local = localLyrics(track) { return .found(local) }
         if let cached = memory[track.id] { return cached }
         if let lrc = try? String(contentsOf: cacheFile(track), encoding: .utf8) {
-            let result = LyricsResult.found(Lyrics(lines: LRC.parse(lrc), source: LRC.sourceTag(lrc) ?? "LRCLIB"))
+            let result = LyricsResult.found(Lyrics(cached: lrc, fallbackSource: "LRCLIB"))
             memory[track.id] = result
             return result
         }
 
+        // Semua sumber dicari bersamaan. Yang terbaik menang: lirik dengan timing per kata (karaoke) dulu,
+        // baru lirik per baris; di tingkat yang sama, urutan daftar ini yang menentukan.
+        let sources = [("lrc.red", lrcred), ("BetterLyrics", betterLyrics), ("LyricsPlus", lyricsPlus),
+                       ("Unison", unison), ("LRCLIB", lrclib), ("KuGou", kugou), ("NetEase", netease)]
+        let searches = sources.filter { onlineSources.contains($0.0) }.map { name, source in
+            (name, Task { await source(track) })
+        }
+        defer { searches.forEach { $0.1.cancel() } }
+
         var failed = false
-        for (name, source) in [("LRCLIB", lrclib), ("NetEase", netease)] where onlineSources.contains(name) {
-            switch await source(track) {
-            case .lrc(let lrc):
-                let lines = LRC.parse(lrc)
-                guard lines.count >= 3 else { continue }
-                try? "[re:\(name)]\n\(lrc)".write(to: cacheFile(track), atomically: true, encoding: .utf8)
-                let result = LyricsResult.found(Lyrics(lines: lines, source: name))
-                memory[track.id] = result
-                return result
+        var lineSynced: (lyrics: Lyrics, lrc: String)?
+        for (name, search) in searches {
+            switch await search.value {
+            case .lrc(let raw):
+                // Sumber boleh membawa tag [re:]/[link:] sendiri (kredit pengirim Unison).
+                let lrc = LRC.tag("re", in: raw) == nil ? "[re:\(name)]\n\(raw)" : raw
+                let lyrics = Lyrics(cached: lrc, fallbackSource: name)
+                guard lyrics.lines.count >= 3 else { continue }
+                if lyrics.lines.contains(where: { !$0.words.isEmpty }) { return save(lyrics, lrc, for: track) }
+                if lineSynced == nil { lineSynced = (lyrics, lrc) }
             case .failed:
                 failed = true
             case .none:
                 continue
             }
         }
+        // shortcut: lirik per baris disimpan walau ada sumber yang gagal; "Cari ulang lirik" mencoba lagi.
+        if let lineSynced { return save(lineSynced.lyrics, lineSynced.lrc, for: track) }
         if failed { return .failed }
         memory[track.id] = .notFound
         return .notFound
+    }
+
+    private func save(_ lyrics: Lyrics, _ lrc: String, for track: Track) -> LyricsResult {
+        try? lrc.write(to: cacheFile(track), atomically: true, encoding: .utf8)
+        let result = LyricsResult.found(lyrics)
+        memory[track.id] = result
+        return result
     }
 
     // MARK: File lokal
@@ -405,6 +511,200 @@ final class LyricsProvider {
             }
         }
         return nil
+    }
+
+    // MARK: lrc.red (lirik dengan timing per kata untuk efek karaoke)
+
+    private struct LrcredSearch: Decodable {
+        struct Hit: Decodable {
+            let isrc: String
+            let title: String
+            let artist: String
+            let duration: Double?
+        }
+        let hits: [Hit]
+    }
+
+    /// Syarat API lrc.red: User-Agent memuat link dan email kontak.
+    private static let lrcredHeaders = ["User-Agent": "Lyricsbar (+https://github.com/kintarous/lyricsbar; kintar@hi2.in)"]
+
+    private func lrcred(_ track: Track) async -> Lookup {
+        let title = Self.cleanTitle(track.title)
+        let artist = Self.primaryArtist(track)
+        let search: Fetch<LrcredSearch> = await getJSON("https://lrc.red/search.json", ["q": "\(title) \(artist)"],
+                                                         headers: Self.lrcredHeaders)
+        let hits: [LrcredSearch.Hit]
+        switch search {
+        case .ok(let value): hits = value.hits
+        case .failed: return .failed
+        case .notFound: return .none
+        }
+
+        var remaining = hits.filter {
+            Self.normalize(Self.cleanTitle($0.title)) == Self.normalize(title)
+                && Self.normalize($0.artist).contains(Self.normalize(artist))
+        }
+        while let hit = Self.closest(remaining, to: track.duration, duration: { $0.duration ?? 0 }) {
+            remaining.removeAll { $0.isrc == hit.isrc }
+            // .lrc hanya ada untuk lagu yang sudah bersinkron; selain itu 404.
+            switch await get("https://lrc.red/s/\(hit.isrc).lrc", [:], headers: Self.lrcredHeaders) {
+            case .ok(let data):
+                if let lrc = String(data: data, encoding: .utf8), LRC.parse(lrc).count >= 3 { return .lrc(lrc) }
+            case .failed: return .failed
+            case .notFound: continue
+            }
+        }
+        return .none
+    }
+
+    // MARK: Unison (lirik komunitas Better Lyrics, sering dengan timing per kata)
+
+    private struct UnisonResponse: Decodable {
+        struct Data: Decodable {
+            struct Submitter: Decodable { let displayName: String? }
+            let videoId: String?
+            let lyrics: String
+            let format: String
+            let submitter: Submitter?
+        }
+        let data: Data
+    }
+
+    private func unison(_ track: Track) async -> Lookup {
+        let found: Fetch<UnisonResponse> = await getJSON("https://unison.betterlyrics.org/lyrics", [
+            "song": Self.cleanTitle(track.title), "artist": Self.primaryArtist(track),
+            "duration": String(Int(track.duration.rounded())),
+        ], headers: Self.lrcredHeaders)
+        let data: UnisonResponse.Data
+        switch found {
+        case .ok(let value): data = value.data
+        case .failed: return .failed
+        case .notFound: return .none
+        }
+        let lrc: String?
+        switch data.format {
+        case "ttml": lrc = LRC.fromTTML(data.lyrics)
+        case "lrc": lrc = data.lyrics
+        default: lrc = nil // teks polos tanpa waktu
+        }
+        guard let lrc else { return .none }
+        // Syarat Unison: kredit "Unison" dan nama pengirim, ditautkan ke halaman lagunya.
+        var tags = "[re:Unison" + (data.submitter?.displayName.map { " · \($0)" } ?? "") + "]\n"
+        if let id = data.videoId { tags += "[link:https://unison.betterlyrics.org/song/\(id)]\n" }
+        return .lrc(tags + lrc)
+    }
+
+    // MARK: BetterLyrics (TTML per kata dari server Better Lyrics)
+
+    private static let browserHeaders = ["User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"]
+
+    private func betterLyrics(_ track: Track) async -> Lookup {
+        struct Response: Decodable { let ttml: String? }
+        // Lagu yang belum pernah dicari orang dijawab 401 "uncached": dianggap tidak ada, bukan gagal.
+        let found: Fetch<Response> = await getJSON("https://lyrics-api.boidu.dev/getLyrics", [
+            "s": Self.cleanTitle(track.title), "a": Self.primaryArtist(track),
+            "d": String(Int(track.duration.rounded())),
+        ], headers: Self.browserHeaders)
+        switch found {
+        case .ok(let value): return value.ttml.flatMap(LRC.fromTTML).map(Lookup.lrc) ?? .none
+        case .failed: return .failed
+        case .notFound: return .none
+        }
+    }
+
+    // MARK: LyricsPlus (Apple Music, QQ Music, Deezer lewat server LyricsPlus)
+
+    private struct LyricsPlusResponse: Decodable {
+        struct Line: Decodable {
+            let time: Double // milidetik
+            let duration: Double
+            let text: String
+            let syllabus: [Syllable]?
+        }
+        struct Syllable: Decodable {
+            let time: Double
+            let duration: Double
+            let text: String
+            let isBackground: Bool?
+        }
+        let type: String?
+        let lyrics: [Line]
+    }
+
+    private func lyricsPlus(_ track: Track) async -> Lookup {
+        let found: Fetch<LyricsPlusResponse> = await getJSON("https://lyricsplus.binimum.org/v2/lyrics/get", [
+            "title": Self.cleanTitle(track.title), "artist": Self.primaryArtist(track),
+            "duration": String(Int(track.duration.rounded())),
+        ], headers: Self.browserHeaders)
+        let response: LyricsPlusResponse
+        switch found {
+        case .ok(let value): response = value
+        case .failed: return .failed
+        case .notFound: return .none
+        }
+        let wordSync = response.type?.lowercased() == "word"
+        let lrc = response.lyrics.map { line -> String in
+            // Vokal latar dilewati, sama seperti TTML.
+            let syllables = (line.syllabus ?? []).filter { $0.isBackground != true }
+            guard wordSync, let last = syllables.last else { return "[\(LRC.timeTag(line.time / 1000))]\(line.text)" }
+            return "[\(LRC.timeTag(line.time / 1000))]"
+                + syllables.map { "<\(LRC.timeTag($0.time / 1000))>\($0.text)" }.joined()
+                + "<\(LRC.timeTag((last.time + last.duration) / 1000))>"
+        }
+        return .lrc(lrc.joined(separator: "\n"))
+    }
+
+    // MARK: KuGou (layanan musik Tiongkok, banyak lagu Asia)
+
+    private struct KugouSearch: Decodable {
+        struct Candidate: Decodable {
+            let id: String
+            let accesskey: String
+            let song: String
+            let singer: String
+            let duration: Double // milidetik
+        }
+        let candidates: [Candidate]
+    }
+
+    private func kugou(_ track: Track) async -> Lookup {
+        let title = Self.cleanTitle(track.title)
+        let artist = Self.primaryArtist(track)
+        let search: Fetch<KugouSearch> = await getJSON("https://lyrics.kugou.com/search", [
+            "ver": "1", "man": "yes", "client": "pc", "keyword": "\(title) - \(artist)",
+            "duration": String(Int(track.duration * 1000)),
+        ])
+        let candidates: [KugouSearch.Candidate]
+        switch search {
+        case .ok(let value): candidates = value.candidates
+        case .failed: return .failed
+        case .notFound: return .none
+        }
+        let matching = candidates.filter {
+            Self.normalize(Self.cleanTitle($0.song)) == Self.normalize(title)
+                && Self.normalize($0.singer).contains(Self.normalize(artist))
+        }
+        guard let best = Self.closest(matching, to: track.duration, duration: { $0.duration / 1000 }) else { return .none }
+
+        struct Download: Decodable { let content: String? }
+        let download: Fetch<Download> = await getJSON("https://lyrics.kugou.com/download", [
+            "fmt": "lrc", "charset": "utf8", "client": "pc", "ver": "1", "id": best.id, "accesskey": best.accesskey,
+        ])
+        switch download {
+        case .ok(let value):
+            guard let content = value.content, let data = Data(base64Encoded: content),
+                  let lrc = String(data: data, encoding: .utf8) else { return .none }
+            // Baris pembuka KuGou berisi "Judul - Artis" dan kredit ("Composed by: …"), bukan lirik.
+            var lines = lrc.components(separatedBy: .newlines)
+            let header = try! NSRegularExpression(pattern: #"^\[\d+:[\d.]+\](.* - .*|[^:：]{1,30}[:：].*)$"#)
+            while let first = lines.firstIndex(where: { $0.hasPrefix("[0") }),
+                  header.firstMatch(in: lines[first], range: NSRange(location: 0, length: (lines[first] as NSString).length)) != nil {
+                lines.remove(at: first)
+            }
+            return .lrc(lines.joined(separator: "\n"))
+        case .failed: return .failed
+        case .notFound: return .none
+        }
     }
 
     // MARK: LRCLIB
@@ -490,8 +790,18 @@ final class LyricsProvider {
     /// GET JSON dengan satu kali coba ulang untuk error server (5xx, 429, timeout).
     private func getJSON<T: Decodable>(_ base: String, _ query: [String: String],
                                        headers: [String: String] = ["User-Agent": "Lyricsbar/1.0"]) async -> Fetch<T> {
+        switch await get(base, query, headers: headers) {
+        case .ok(let data):
+            guard let value = try? JSONDecoder().decode(T.self, from: data) else { return .failed }
+            return .ok(value)
+        case .notFound: return .notFound
+        case .failed: return .failed
+        }
+    }
+
+    private func get(_ base: String, _ query: [String: String], headers: [String: String]) async -> Fetch<Data> {
         var components = URLComponents(string: base)!
-        components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+        components.queryItems = query.isEmpty ? nil : query.map { URLQueryItem(name: $0.key, value: $0.value) }
         var request = URLRequest(url: components.url!, timeoutInterval: 10)
         headers.forEach { request.setValue($0.value, forHTTPHeaderField: $0.key) }
 
@@ -499,10 +809,7 @@ final class LyricsProvider {
             if attempt > 0 { try? await Task.sleep(nanoseconds: 1_500_000_000) }
             guard let (data, response) = try? await session.data(for: request) else { continue }
             let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if status == 200 {
-                guard let value = try? JSONDecoder().decode(T.self, from: data) else { return .failed }
-                return .ok(value)
-            }
+            if status == 200 { return .ok(data) }
             if status < 500 && status != 429 { return .notFound }
         }
         return .failed
@@ -758,10 +1065,11 @@ enum MenuBarWidth: String, CaseIterable {
 }
 
 enum LyricAnimation: String, CaseIterable {
-    case slideUp, fade, none
+    case slideUp, fade, none, karaoke
 
     var title: String {
         switch self {
+        case .karaoke: return "Karaoke"
         case .slideUp: return L("Geser ke atas", "Slide up")
         case .fade: return L("Pudar", "Fade")
         case .none: return L("Tanpa animasi", "No animation")
@@ -1004,6 +1312,93 @@ final class SliderRowItem: NSCustomTouchBarItem {
     }
 }
 
+/// Lirik karaoke ala Apple Music: baris redup, bagian yang sudah dinyanyikan menyala dengan tepi lembut yang
+/// bergerak mulus; saat jeda instrumental tampil tiga titik yang menyala bergantian sambil "bernapas".
+final class KaraokeView: NSView {
+    enum Content: Equatable {
+        case line(String, sung: Double)
+        case dots(progress: Double)
+    }
+
+    var content = Content.dots(progress: 0) {
+        didSet { if content != oldValue { needsDisplay = true } }
+    }
+    var alignment = NSTextAlignment.center {
+        didSet { needsDisplay = true }
+    }
+    var font = NSFont.systemFont(ofSize: 16, weight: .medium)
+
+    override func draw(_ dirtyRect: NSRect) {
+        switch content {
+        case let .line(text, sung): drawLine(text, sung: sung)
+        case let .dots(progress): drawDots(progress)
+        }
+    }
+
+    private func originX(width: CGFloat) -> CGFloat {
+        switch alignment {
+        case .left: return 0
+        case .right: return bounds.width - width
+        default: return (bounds.width - width) / 2
+        }
+    }
+
+    private func drawLine(_ text: String, sung: Double) {
+        let ns = text as NSString
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byTruncatingTail
+        func attributes(_ alpha: CGFloat) -> [NSAttributedString.Key: Any] {
+            [.font: font, .foregroundColor: NSColor.white.withAlphaComponent(alpha), .paragraphStyle: style]
+        }
+        let size = ns.size(withAttributes: attributes(1))
+        let width = min(size.width, bounds.width)
+        let rect = NSRect(x: originX(width: width), y: (bounds.height - size.height) / 2, width: width, height: size.height)
+        func draw(_ alpha: CGFloat, clip: NSRect) {
+            NSGraphicsContext.saveGraphicsState()
+            clip.clip()
+            ns.draw(with: rect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine], attributes: attributes(alpha))
+            NSGraphicsContext.restoreGraphicsState()
+        }
+        draw(0.35, clip: bounds)
+
+        // Posisi sapuan: lebar bagian yang sudah dinyanyikan, ditambah pecahan huruf yang sedang dinyanyikan.
+        // shortcut: kalau baris terpotong "…", sapuan berhenti di tepi kanan; cukup karena font sudah dikecilkan dulu.
+        let n = min(ns.length, Int(sung)), next = min(ns.length, n + 1)
+        let a = ns.substring(to: n).size(withAttributes: attributes(1)).width
+        let b = ns.substring(to: next).size(withAttributes: attributes(1)).width
+        let x = min(rect.maxX, rect.minX + a + (b - a) * CGFloat(sung - Double(n)))
+
+        // Tepi lembut selebar `feather` yang berakhir tepat di x: terang penuh sebelumnya, lalu irisan yang makin pudar.
+        // Begitu baris selesai dinyanyikan, semuanya terang.
+        if sung >= Double(ns.length) { return draw(1, clip: bounds) }
+        let feather: CGFloat = 16, steps = 8
+        let start = x - feather
+        draw(1, clip: NSRect(x: bounds.minX, y: bounds.minY, width: max(0, start - bounds.minX), height: bounds.height))
+        for i in 0..<steps {
+            let slice = feather / CGFloat(steps)
+            draw(1 - CGFloat(i + 1) / CGFloat(steps + 1),
+                 clip: NSRect(x: start + CGFloat(i) * slice, y: bounds.minY, width: slice, height: bounds.height))
+        }
+    }
+
+    private func drawDots(_ progress: Double) {
+        let diameter: CGFloat = 8, gap: CGFloat = 8
+        let total = diameter * 3 + gap * 2
+        // Bernapas pelan, lalu mengecil hilang tepat sebelum baris berikutnya masuk.
+        let breathe = 1 + 0.12 * sin(CACurrentMediaTime() * 2 * .pi / 2.4)
+        let exit = progress > 0.9 ? max(0, (1 - progress) / 0.1) : 1
+        let radius = diameter / 2 * CGFloat(breathe * exit)
+        let left = originX(width: total)
+        for i in 0..<3 {
+            // Titik menyala satu per satu, selesai semua sebelum fase mengecil.
+            let lit = min(1, max(0, progress / 0.9 * 3 - Double(i)))
+            NSColor.white.withAlphaComponent(0.3 + 0.7 * CGFloat(lit)).setFill()
+            let center = NSPoint(x: left + diameter / 2 + CGFloat(i) * (diameter + gap), y: bounds.midY)
+            NSBezierPath(ovalIn: NSRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2)).fill()
+        }
+    }
+}
+
 @MainActor
 final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
     static let trayID = NSTouchBarItem.Identifier("local.touchbarlyrics.tray")
@@ -1025,7 +1420,10 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
 
     var animation = LyricAnimation.slideUp
     var alignment = LyricAlignment.center {
-        didSet { label.alignment = alignment.textAlignment }
+        didSet {
+            label.alignment = alignment.textAlignment
+            karaoke.alignment = alignment.textAlignment
+        }
     }
     var onCommand: ((PlayerCommand) -> Void)?
     /// Dipakai saat kembali dari mode emoji: bar lirik hanya muncul lagi kalau lagu sedang diputar.
@@ -1040,6 +1438,9 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
     private let bar = NSTouchBar()
     private let container = NSView()
     private let label = NSTextField(labelWithString: "♪")
+    private let karaoke = KaraokeView()
+    /// Teks dan ukuran font baris karaoke yang tampil, supaya ukurannya tidak dihitung ulang tiap frame.
+    private var karaokeText: String?
     /// Touch Bar ±1000 pt; sisanya untuk logo dan 7 tombol kontrol (48 pt) di kanan.
     /// Item yang tidak muat akan disembunyikan sistem.
     private let width: CGFloat = 550
@@ -1123,9 +1524,16 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
         case Self.lyricID:
             container.translatesAutoresizingMaskIntoConstraints = false
             label.translatesAutoresizingMaskIntoConstraints = false
+            karaoke.translatesAutoresizingMaskIntoConstraints = false
+            karaoke.isHidden = true
             container.addSubview(label)
+            container.addSubview(karaoke)
             NSLayoutConstraint.activate([
                 container.widthAnchor.constraint(equalToConstant: width),
+                karaoke.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+                karaoke.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+                karaoke.topAnchor.constraint(equalTo: container.topAnchor),
+                karaoke.bottomAnchor.constraint(equalTo: container.bottomAnchor),
                 label.leadingAnchor.constraint(equalTo: container.leadingAnchor),
                 label.trailingAnchor.constraint(equalTo: container.trailingAnchor),
                 label.centerYAnchor.constraint(equalTo: container.centerYAnchor),
@@ -1314,22 +1722,54 @@ final class LyricsTouchBar: NSObject, NSTouchBarDelegate {
         }
     }
 
-    /// Menampilkan satu baris; font dikecilkan sampai muat, baru dipotong kalau masih terlalu panjang.
-    func show(_ text: String, dimmed: Bool = false) {
-        let key = (dimmed ? "0" : "1") + text
-        guard key != shown else { return }
-        shown = key
-
+    /// Ukuran font terbesar (16 → 11) yang membuat teks muat.
+    private func fittingSize(_ text: String) -> CGFloat {
         var size: CGFloat = 16
         while size > 11,
               (text as NSString).size(withAttributes: [.font: NSFont.systemFont(ofSize: size, weight: .medium)]).width > width {
             size -= 1
         }
+        return size
+    }
+
+    /// Jeda instrumental di mode karaoke: tiga titik, `progress` 0…1 sampai baris berikutnya.
+    func showDots(progress: Double) {
+        guard animation == .karaoke else { return }
+        showKaraoke(.dots(progress: progress))
+    }
+
+    /// Mode karaoke: perpindahan baris langsung, tanpa geser atau pudar.
+    private func showKaraoke(_ content: KaraokeView.Content) {
+        shown = nil
+        label.isHidden = true
+        karaoke.isHidden = false
+        if case let .line(text, _) = content, text != karaokeText {
+            karaokeText = text
+            karaoke.font = .systemFont(ofSize: fittingSize(text), weight: .medium)
+        }
+        karaoke.content = content
+    }
+
+    /// Menampilkan satu baris; font dikecilkan sampai muat, baru dipotong kalau masih terlalu panjang.
+    /// `sung`: jumlah karakter yang sudah dinyanyikan, nil kalau lirik tanpa timing per kata. Di mode karaoke,
+    /// baris tanpa timing per kata tampil biasa dengan animasi geser ke atas.
+    func show(_ text: String, dimmed: Bool = false, sung: Double? = nil) {
+        if animation == .karaoke, let sung, !dimmed { return showKaraoke(.line(text, sung: sung)) }
+        let key = (dimmed ? "0" : "1") + text
+        guard key != shown else { return }
+        shown = key
+        // Keluar dari tampilan karaoke juga langsung, tanpa animasi.
+        let fromKaraoke = !karaoke.isHidden
+        karaoke.isHidden = true
+        karaokeText = nil
+        label.isHidden = false
+
+        let size = fittingSize(text)
         // Transisi dipasang di container (tidak flipped), jadi "fromBottom" memang dari bawah:
         // baris lama terdorong ke atas, baris baru naik dari bawah seperti lirik Spotify.
         let duration = UserDefaults.standard.double(forKey: "animationDuration")
-        switch animation {
-        case .slideUp:
+        switch fromKaraoke ? .none : animation {
+        case .slideUp, .karaoke:
             let push = CATransition()
             push.type = .push
             push.subtype = .fromBottom
@@ -1367,6 +1807,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var loading = false
     private var lookupFailed = false
     private var lyricsSource = ""
+    private var lyricsLink: URL?
+    /// Lirik punya timing per kata (lrc.red, Unison, file .lrc yang diperluas): mode karaoke bisa dipakai.
+    private var hasWordTiming = false
     private var clock = PlaybackClock()
     private var message = L("Menunggu pemutar musik…", "Waiting for a music player…")
 
@@ -1681,7 +2124,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             switch result {
             case .found(let lyrics):
                 lines = lyrics.lines
+                hasWordTiming = lyrics.lines.contains { !$0.words.isEmpty }
                 lyricsSource = lyrics.source
+                lyricsLink = lyrics.link
                 lookupFailed = false
             case .notFound:
                 lines = []
@@ -1699,11 +2144,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Tampilan
 
-    private func currentLine() -> (text: String, dimmed: Bool) {
-        guard let track else { return (message, true) }
+    /// `interlude`: 0…1 selama jeda instrumental (mode karaoke saja), untuk titik-titik di Touch Bar.
+    private func currentLine() -> (text: String, dimmed: Bool, sung: Double?, interlude: Double?) {
+        guard let track else { return (message, true, nil, nil) }
         let nowPlaying = "♪  \(track.title) — \(track.artist)"
-        if loading { return (nowPlaying, true) }
-        if lines.isEmpty { return (nowPlaying + (lookupFailed ? "" : L("  ·  lirik tidak ditemukan", "  ·  lyrics not found")), true) }
+        if loading { return (nowPlaying, true, nil, nil) }
+        if lines.isEmpty { return (nowPlaying + (lookupFailed ? "" : L("  ·  lirik tidak ditemukan", "  ·  lyrics not found")), true, nil, nil) }
 
         let t = clock.now + offset
         // Pencarian biner: baris terakhir yang waktunya <= t.
@@ -1712,14 +2158,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let mid = (lo + hi) / 2
             if lines[mid].time <= t { lo = mid + 1 } else { hi = mid }
         }
-        guard lo > 0 else { return (nowPlaying, true) }
-        let text = lines[lo - 1].text
-        return text.isEmpty ? ("♪", true) : (text, false)
+        guard lo > 0 else { return (nowPlaying, true, nil, nil) }
+        let line = lines[lo - 1]
+        // Jeda instrumental: dari akhir baris (atau baris kosong) sampai baris berikutnya, kalau minimal 4 detik.
+        var interlude: Double?
+        if animation == .karaoke, hasWordTiming, lo < lines.count,
+           let end = line.text.isEmpty ? line.time : line.words.last?.time, t >= end, lines[lo].time - end >= 4 {
+            interlude = (t - end) / (lines[lo].time - end)
+        }
+        return line.text.isEmpty ? ("♪", true, nil, interlude) : (line.text, false, line.sungLength(at: t), interlude)
     }
 
     private func render() {
         let line = currentLine()
-        touchBar.show(line.text, dimmed: line.dimmed)
+        if let progress = line.interlude {
+            touchBar.showDots(progress: progress)
+        } else {
+            touchBar.show(line.text, dimmed: line.dimmed, sung: line.sung)
+        }
         renderMenuBar(line.text)
     }
 
@@ -1799,6 +2255,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                  : !lines.isEmpty ? L("Lirik dari \(lyricsSource) · \(lines.count) baris", "Lyrics from \(lyricsSource) · \(lines.count) lines")
                  : lookupFailed ? L("Server lirik tidak merespons, mencoba lagi…", "Lyrics server not responding, retrying…")
                  : L("Lirik bersinkron tidak ditemukan", "No synced lyrics found"))
+            if !lines.isEmpty, lyricsLink != nil {
+                action(L("Lihat lirik dan pengirimnya…", "View lyrics and submitter…"), #selector(openLyricsLink))
+            }
             menu.addItem(.separator())
             menu.addItem(offsetMenuItem())
             menu.addItem(.separator())
@@ -2134,6 +2593,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc private func openLyricsFolder() {
         try? FileManager.default.createDirectory(at: LyricsProvider.userFolder, withIntermediateDirectories: true)
         NSWorkspace.shared.open(LyricsProvider.userFolder)
+    }
+
+    @objc private func openLyricsLink() {
+        if let lyricsLink { NSWorkspace.shared.open(lyricsLink) }
     }
 
     @objc private func reload() {
